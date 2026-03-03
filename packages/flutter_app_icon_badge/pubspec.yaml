@@ -1,0 +1,31 @@
+name: flutter_app_icon_badge
+description: Flutter app icon badge plugin to change the badge on the icon of your app.
+version: 2.0.0
+homepage: https://github.com/badver/flutter_app_icon_badge
+
+environment:
+  sdk: '>=2.12.0 <3.0.0'
+  flutter: ">=1.20.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: dev.badver.flutter_app_icon_badge
+        pluginClass: FlutterAppIconBadgePlugin
+      ios:
+        pluginClass: FlutterAppIconBadgePlugin
+      linux:
+        pluginClass: FlutterAppIconBadgePlugin
+      macos:
+        pluginClass: FlutterAppIconBadgePlugin
+      windows:
+        pluginClass: FlutterAppIconBadgePlugin

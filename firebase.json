@@ -1,0 +1,46 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "apec-no-dues",
+          "appId": "1:481537812306:android:11c07e534ee9ec568b3c8b",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "apec-no-dues",
+          "configurations": {
+            "android": "1:481537812306:android:11c07e534ee9ec568b3c8b",
+            "ios": "1:481537812306:ios:ef13a5af01f326cc8b3c8b",
+            "macos": "1:481537812306:ios:ef13a5af01f326cc8b3c8b",
+            "web": "1:481537812306:web:029f26ada45b2d238b3c8b",
+            "windows": "1:481537812306:web:82dd7adfe91be0cd8b3c8b"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "disallowLegacyRuntimeConfig": true,
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ]
+    }
+  ],
+  "extensions": {
+    "firestore-send-email": "firebase/firestore-send-email@0.2.4"
+  }
+}

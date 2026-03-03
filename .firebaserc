@@ -1,0 +1,13 @@
+{
+  "projects": {
+    "default": "apec-no-dues"
+  },
+  "targets": {},
+  "etags": {
+    "apec-no-dues": {
+      "extensionInstances": {
+        "firestore-send-email": "c1a58979f2aa6c48f6956fb706a4ee8d6c02bb555e5c82976f54142f875b893f"
+      }
+    }
+  }
+}
