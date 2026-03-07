@@ -30,6 +30,9 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen> {
+  // Custom red color (primary accent)
+  final Color customRed = const Color.fromARGB(255, 198, 55, 45);
+
   Map<String, dynamic>? _paymentDetails;
   bool _isLoadingDetails = true;
 
@@ -58,7 +61,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String? _ocrOriginalDate;
   String? _ocrOriginalRegNo;
   bool _ocrRan = false; // whether OCR was ever performed
-  
+
   // ── Installment logic ──────────────────────────────────────
   bool _isInstallmentMode = false;
   int _installmentNumber = 1;
@@ -104,7 +107,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       final user = FirebaseAuth.instance.currentUser!;
       String sanitizedType = widget.feeType.replaceAll(" ", "_");
       String paymentId = "${user.uid}_${widget.semester}_$sanitizedType";
-      
+
       var doc = await FirebaseFirestore.instance.collection('payments').doc(paymentId).get();
       if (doc.exists) {
         var data = doc.data()!;
@@ -703,7 +706,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         // Priority 2: UTR / UPI Ref — 12-digit number on a labelled line
         if (extractedTxn == null) {
           final utrLabelRegex = RegExp(
-              r'(?:utr|upi\s*ref(?:erence)?|transaction\s*id|txn\s*id|ref(?:erence)?\s*(?:no\.?|id)?)'  
+              r'(?:utr|upi\s*ref(?:erence)?|transaction\s*id|txn\s*id|ref(?:erence)?\s*(?:no\.?|id)?)'
               r'[:\s#–]*(\d{10,15}|[A-Z0-9]{10,20})',
               caseSensitive: false);
           for (final line in lines) {
@@ -996,9 +999,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Pay & Verify")),
+      appBar: AppBar(
+        title: const Text("Pay & Verify"),
+        backgroundColor: Colors.white,
+        foregroundColor: customRed,
+        elevation: 0.5,
+      ),
       body: _isLoadingDetails
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: customRed))
           : Stepper(
               currentStep: _currentStep,
               onStepContinue: () {
@@ -1029,19 +1037,25 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   padding: const EdgeInsets.only(top: 20.0),
                   child: Row(
                     children: [
-                      ElevatedButton(
-                        onPressed: details.onStepContinue,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.indigo,
-                          foregroundColor: Colors.white,
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: details.onStepContinue,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: customRed,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: Text(continueLabel, style: const TextStyle(fontWeight: FontWeight.bold)),
                         ),
-                        child: Text(continueLabel, style: const TextStyle(fontWeight: FontWeight.bold)),
                       ),
                       if (_currentStep > 0) ...[
                         const SizedBox(width: 12),
                         TextButton(
                           onPressed: details.onStepCancel,
-                          child: const Text('Back'),
+                          child: Text('Back', style: TextStyle(color: customRed)),
                         ),
                       ],
                     ],
@@ -1051,7 +1065,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               steps: [
                 // ── Step 1: Payment Method ──────────────────────
                 Step(
-                  title: const Text("Payment Method"),
+                  title: Text("Payment Method", style: TextStyle(color: customRed, fontWeight: FontWeight.bold)),
                   content: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1065,10 +1079,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.indigo.withValues(alpha: 0.05),
+                            color: customRed.withOpacity(0.05),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                                color: Colors.indigo.withValues(alpha: 0.1)),
+                                color: customRed.withOpacity(0.1)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1111,10 +1125,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.orange.withValues(alpha: 0.1),
+                            color: Colors.orange.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                                color: Colors.orange.withValues(alpha: 0.2)),
+                                color: Colors.orange.withOpacity(0.2)),
                           ),
                           child: Row(
                             children: [
@@ -1145,10 +1159,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.green.withValues(alpha: 0.05),
+                            color: Colors.green.withOpacity(0.05),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                                color: Colors.green.withValues(alpha: 0.1)),
+                                color: Colors.green.withOpacity(0.1)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1184,7 +1198,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                       : "Use your credit for this payment",
                                   style: const TextStyle(fontSize: 12),
                                 ),
-                                activeColor: Colors.green,
+                                activeColor: customRed,
+                                checkColor: Colors.white,
                                 contentPadding: EdgeInsets.zero,
                                 onChanged: (val) {
                                   setState(() {
@@ -1267,7 +1282,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               Text("Scan to Pay",
                                   style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.indigo[900])),
+                                      color: customRed)),
                               const SizedBox(height: 8),
                               Container(
                                 decoration: BoxDecoration(
@@ -1303,7 +1318,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           ),
                         Card(
                           elevation: 2,
-                          color: Colors.indigo[50],
+                          color: customRed.withOpacity(0.05),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           child: Padding(
                             padding: const EdgeInsets.all(16.0),
                             child: Column(
@@ -1321,7 +1339,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                 if (_paymentDetails?['ifsc'] != null)
                                   _buildDetailRow(
                                       "IFSC", _paymentDetails!['ifsc']),
-                                Divider(color: Colors.indigo[100]),
+                                Divider(color: customRed.withOpacity(0.2)),
                                 _buildDetailRow("UPI ID",
                                     _paymentDetails?['upiId'] ??
                                         "collegefees@sbi"),
@@ -1336,10 +1354,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             icon: const Icon(Icons.payment),
                             label: const Text("Open UPI App"),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.indigo,
+                              backgroundColor: customRed,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 24, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                           ),
                         ),
@@ -1353,7 +1374,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 Step(
                   title: Text(_paymentMode == PaymentMode.dd
                       ? "Upload DD Photo"
-                      : "Upload Screenshot"),
+                      : "Upload Screenshot", style: TextStyle(color: customRed, fontWeight: FontWeight.bold)),
                   content: Column(
                     children: [
                       if (kIsWeb)
@@ -1367,29 +1388,42 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       Stack(
                         alignment: Alignment.center,
                         children: [
-                          _imageFile != null
-                              ? Image.file(File(_imageFile!.path), height: 160)
-                              : Container(
-                                  height: 100,
-                                  width: double.infinity,
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[200],
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Center(
-                                      child: Text(
-                                    _paymentMode == PaymentMode.dd
-                                        ? "No DD Photo"
-                                        : "No Screenshot",
-                                    style: const TextStyle(color: Colors.grey),
-                                  ))),
+                          Container(
+                            height: 180,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey[300]!),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(11),
+                              child: _imageFile != null
+                                  ? Image.file(File(_imageFile!.path), fit: BoxFit.contain)
+                                  : Center(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.image_outlined, size: 40, color: Colors.grey[400]),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            _paymentMode == PaymentMode.dd
+                                                ? "No DD Photo Selected"
+                                                : "No Screenshot Selected",
+                                            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                            ),
+                          ),
                           if (_isScanning)
                             Container(
-                              height: 160,
+                              height: 180,
                               width: double.infinity,
                               decoration: BoxDecoration(
                                   color: Colors.black54,
-                                  borderRadius: BorderRadius.circular(8)),
+                                  borderRadius: BorderRadius.circular(12)),
                               child: const Center(
                                   child: Column(
                                 mainAxisSize: MainAxisSize.min,
@@ -1405,7 +1439,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         ],
                       ),
                       const SizedBox(height: 10),
-                      TextButton.icon(
+                      ElevatedButton.icon(
                         icon: Icon(_paymentMode == PaymentMode.dd
                             ? Icons.document_scanner
                             : Icons.camera_alt),
@@ -1414,11 +1448,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             : _paymentMode == PaymentMode.dd
                                 ? "Take / Select DD Photo"
                                 : "Select Screenshot"),
-                        onPressed: _pickAndScanImage,
-                        style: kIsWeb
-                            ? TextButton.styleFrom(
-                                foregroundColor: Colors.grey)
-                            : null,
+                        onPressed: kIsWeb ? null : _pickAndScanImage,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: customRed,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
                       ),
                       if (_ocrRan && !_isScanning)
                         Padding(
@@ -1439,7 +1476,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
                 // ── Step 3: Verify Details ──────────────────────
                 Step(
-                  title: const Text("Verify Details"),
+                  title: Text("Verify Details", style: TextStyle(color: customRed, fontWeight: FontWeight.bold)),
                   content: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1601,7 +1638,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
                       if (_isUploading) ...[
                         const SizedBox(height: 16),
-                        const LinearProgressIndicator(),
+                        LinearProgressIndicator(color: customRed),
                       ],
                     ],
                   ),
@@ -1637,7 +1674,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: selected ? Colors.indigo : Colors.transparent,
+            color: selected ? customRed : Colors.transparent,
             borderRadius: BorderRadius.circular(11),
           ),
           child: Row(
@@ -1741,12 +1778,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
           decoration: InputDecoration(
             hintText: hint,
             border: const OutlineInputBorder(),
-            prefixIcon: Icon(icon),
+            prefixIcon: Icon(icon, color: customRed),
             // Show a small OCR chip if value was originally extracted
             suffixIcon: ocrValue != null
                 ? Tooltip(
                     message: "OCR extracted: $ocrValue",
-                    child: const Icon(Icons.document_scanner,
+                    child: Icon(Icons.document_scanner,
                         size: 18, color: Colors.green),
                   )
                 : null,
@@ -1778,7 +1815,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               width: 100,
               child: Text(label,
                   style: TextStyle(
-                      color: Colors.indigo[700],
+                      color: customRed,
                       fontWeight: FontWeight.bold))),
           Expanded(
               child: Text(value,
@@ -1814,14 +1851,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: selected ? Colors.indigo : Colors.white,
+          color: selected ? customRed : Colors.white,
           borderRadius: BorderRadius.circular(10),
           border:
-              Border.all(color: selected ? Colors.indigo : Colors.grey[300]!),
+              Border.all(color: selected ? customRed : Colors.grey[300]!),
         ),
         child: Row(
           children: [
-            Icon(icon, color: selected ? Colors.white : Colors.indigo),
+            Icon(icon, color: selected ? Colors.white : customRed),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -1829,7 +1866,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 children: [
                   Text(title,
                       style: TextStyle(
-                          color: selected ? Colors.white : Colors.indigo[900],
+                          color: selected ? Colors.white : customRed,
                           fontWeight: FontWeight.bold)),
                   Text(subtitle,
                       style: TextStyle(
@@ -1856,8 +1893,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: remaining < 0
-            ? Colors.red.withValues(alpha: 0.1)
-            : Colors.green.withValues(alpha: 0.1),
+            ? Colors.red.withOpacity(0.1)
+            : Colors.green.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -1878,5 +1915,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
         ],
       ),
     );
+  }
+}
+
+class Validators {
+  static String? validateTransactionId(String value) {
+    if (value.isEmpty) return 'Transaction ID cannot be empty';
+    if (value.length < 8) return 'Transaction ID must be at least 8 characters';
+    return null;
+  }
+
+  static String? validateAmount(String value) {
+    if (value.isEmpty) return 'Amount cannot be empty';
+    final amount = double.tryParse(value);
+    if (amount == null || amount <= 0) return 'Please enter a valid amount';
+    return null;
   }
 }

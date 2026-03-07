@@ -13,13 +13,16 @@ class FeeSetupScreen extends StatefulWidget {
 }
 
 class _FeeSetupScreenState extends State<FeeSetupScreen> {
+  // Custom project color
+  final Color customRed = const Color.fromARGB(255, 198, 55, 45);
+
   // Config
   String _batch = '';
   String _dept = 'All';
   String _quota = 'All';
   String _semester = '1';
   DateTime? _deadline;
-  DateTime? _examDeadline; // NEW: Separate exam deadline
+  DateTime? _examDeadline;
 
   // State
   bool _isLoading = false;
@@ -79,32 +82,28 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
     try {
       final snapshot = await FirebaseFirestore.instance
           .collection('semesters')
-          .where('academicYear', isEqualTo: _batch) // REVERTED TO NAME
-          .where('isActive', isEqualTo: true) // Allow seeing inactive semesters for setup
-          //.orderBy('semesterNumber') // Removed to avoid index issues
+          .where('academicYear', isEqualTo: _batch)
+          .where('isActive', isEqualTo: true)
           .get();
 
       if (mounted) {
         setState(() {
-          // Use a Set to avoid duplicates if ID == Name or other overlap
           final semNumbers = <String>{};
           for (var d in snapshot.docs) {
             semNumbers.add(d['semesterNumber'].toString());
           }
           
-          // Convert back to sorted list
           _activeSemesters = semNumbers.toList()..sort((a, b) => int.parse(a).compareTo(int.parse(b)));
           
-          // Ensure selected semester is valid
           if (_activeSemesters.isNotEmpty) {
              if (!_activeSemesters.contains(_semester)) {
                _semester = _activeSemesters.first;
              }
           } else {
-             _semester = ''; // No semesters available
+             _semester = '';
           }
         });
-        _loadExistingStructure(); // Reload structure for new semester
+        _loadExistingStructure();
       }
     } catch (e) {
       debugPrint("Error loading semesters: $e");
@@ -124,7 +123,7 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
           
           if (_activeBatches.isNotEmpty) {
             _batch = _activeBatches.first;
-            _loadActiveSemesters(); // Load semesters for this batch
+            _loadActiveSemesters();
           }
           _loadingBatches = false;
         });
@@ -144,7 +143,6 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
     
     setState(() => _isLoading = true);
     
-    // Use deterministic ID for loading (Batch_Dept_Quota_Sem)
     String sanitizedDept = _dept.replaceAll(" ", "_");
     String sanitizedQuota = _quota.replaceAll(" ", "_");
     String docId = "${_batch}_${sanitizedDept}_${sanitizedQuota}_$_semester";
@@ -163,7 +161,7 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
         final examDeadline = data['examDeadline'] as Timestamp?;
 
         setState(() {
-          _isEditing = true; // Data loaded from DB
+          _isEditing = true;
           _controllers.clear();
           _busFeePlaces.clear();
           _deadline = deadline?.toDate();
@@ -182,9 +180,8 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
           _isLoading = false;
         });
       } else {
-        // No existing structure, reset to defaults
         setState(() {
-          _isEditing = false; // Fresh start
+          _isEditing = false;
           _resetControllers();
           _deadline = null;
           _examDeadline = null;
@@ -201,7 +198,6 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
   void _resetControllers() {
     _controllers.clear();
     _busFeePlaces.clear();
-    // Default starter fees
     _addFeeComponent("Tuition Fee");
     _addBusFeePlace("City Center");
   }
@@ -239,14 +235,12 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
 
     Map<String, dynamic> components = {};
     
-    // Add regular fee components
     _controllers.forEach((key, ctrl) {
       if (ctrl.text.isNotEmpty) {
         components[key] = double.tryParse(ctrl.text.replaceAll(',', '')) ?? 0.0;
       }
     });
 
-    // Add bus fee places
     if (_busFeePlaces.isNotEmpty) {
       Map<String, double> busFeeMap = {};
       _busFeePlaces.forEach((place, ctrl) {
@@ -265,11 +259,12 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
       return;
     }
 
-    // Calculate total
     double total = 0;
     components.forEach((key, value) {
       if (value is Map) {
-        value.values.forEach((amt) => total += (amt as num).toDouble());
+        for (var amt in value.values) {
+          total += (amt as num).toDouble();
+        }
       } else {
         total += (value as num).toDouble();
       }
@@ -307,7 +302,14 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Configure Semester Fees")),
+      appBar: AppBar(
+        title: const Text("Configure Semester Fees"),
+        backgroundColor: customRed,
+        foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white),
+        elevation: 0.5,
+        centerTitle: true,
+      ),
       drawer: widget.drawer,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -320,14 +322,22 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
               child: Chip(
                 label: Text(_isEditing ? "Editing Saved Fees" : "New Fee Structure", style: const TextStyle(fontWeight: FontWeight.bold)),
                 backgroundColor: _isEditing ? Colors.amber[100] : Colors.green[100],
-                avatar: Icon(_isEditing ? Icons.edit : Icons.add, size: 18, color: _isEditing ? Colors.orange : Colors.green),
+                avatar: Icon(
+                  _isEditing ? Icons.edit : Icons.add,
+                  size: 18,
+                  color: _isEditing ? Colors.orange : Colors.green,
+                ),
               ),
             ),
+            const SizedBox(height: 12),
             
             // FILTERS CARD
             Card(
-              elevation: 4,
-              color: Colors.indigo[50],
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: customRed.withOpacity(0.2)),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -349,7 +359,6 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
                             )
                           : _buildDropdown("Batch", _activeBatches, _batch, (v) {
                                 setState(() => _batch = v!);
-                                setState(() => _batch = v!);
                                 _loadActiveSemesters();
                               }),
                       _isLoadingMetaData 
@@ -359,7 +368,7 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
                         _loadExistingStructure();
                       }),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     _buildRow(
                       _isLoadingMetaData
                           ? const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))
@@ -367,7 +376,6 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
                         setState(() => _quota = v!);
                         _loadExistingStructure();
                       }),
-                      // Semester Dropdown
                       _activeSemesters.isEmpty
                           ? const Padding(
                               padding: EdgeInsets.only(top: 8.0),
@@ -378,10 +386,11 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
                               _loadExistingStructure();
                             }),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     ListTile(
+                      contentPadding: EdgeInsets.zero,
                       title: Text(_deadline == null ? "Set Payment Deadline" : "Deadline: ${DateFormat('dd MMM yyyy').format(_deadline!)}"),
-                      trailing: const Icon(Icons.calendar_month, color: Colors.indigo),
+                      trailing: Icon(Icons.calendar_month, color: customRed),
                       onTap: () async {
                         final picked = await showDatePicker(
                           context: context,
@@ -405,6 +414,10 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
             ..._controllers.keys.map((key) {
               return Card(
                 margin: const EdgeInsets.only(bottom: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: customRed.withOpacity(0.2)),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   child: Row(
@@ -417,20 +430,25 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
                         flex: 2,
                         child: TextField(
                           controller: _controllers[key],
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: "Amount",
                             prefixText: "₹ ",
-                            border: OutlineInputBorder(),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: customRed.withOpacity(0.5)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: customRed, width: 2),
+                            ),
                             isDense: true,
                           ),
                           keyboardType: TextInputType.number,
-                          onChanged: (val) {
-                            // Optional: Add auto-formatting here if needed
-                          },
+                          onChanged: (val) {},
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
+                        icon: Icon(Icons.delete, color: customRed),
                         onPressed: () => _removeComponent(key),
                       )
                     ],
@@ -441,10 +459,13 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
 
             const SizedBox(height: 20),
             
-            // BUS FEE PLACES SECTION
+            // BUS FEE PLACES CARD
             Card(
-              elevation: 4,
-              color: Colors.teal[50],
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: customRed.withOpacity(0.2)),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -453,12 +474,18 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          "Bus Fee (Place-Based)",
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        Row(
+                          children: [
+                            Icon(Icons.directions_bus, color: customRed, size: 24),
+                            const SizedBox(width: 8),
+                            const Text(
+                              "Bus Fee (Place-Based)",
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                          ],
                         ),
                         IconButton(
-                          icon: const Icon(Icons.add_location, color: Colors.teal),
+                          icon: Icon(Icons.add_location, color: customRed),
                           tooltip: "Add Place",
                           onPressed: () async {
                             final placeController = TextEditingController();
@@ -479,6 +506,10 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
                                     child: const Text('Cancel'),
                                   ),
                                   ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: customRed,
+                                      foregroundColor: Colors.white,
+                                    ),
                                     onPressed: () => Navigator.pop(ctx, true),
                                     child: const Text('Add'),
                                   ),
@@ -492,7 +523,7 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
                         ),
                       ],
                     ),
-                    const Divider(),
+                    Divider(color: customRed.withOpacity(0.3), height: 24),
                     if (_busFeePlaces.isEmpty)
                       const Padding(
                         padding: EdgeInsets.all(8.0),
@@ -504,7 +535,7 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
                           padding: const EdgeInsets.only(bottom: 12),
                           child: Row(
                             children: [
-                              const Icon(Icons.location_on, color: Colors.teal, size: 20),
+                              Icon(Icons.location_on, color: customRed, size: 20),
                               const SizedBox(width: 8),
                               Expanded(
                                 flex: 2,
@@ -518,16 +549,23 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
                                 child: TextField(
                                   controller: _busFeePlaces[place],
                                   keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(
+                                  decoration: InputDecoration(
                                     prefixText: '₹ ',
-                                    border: OutlineInputBorder(),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: BorderSide(color: customRed.withOpacity(0.5)),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      borderSide: BorderSide(color: customRed, width: 2),
+                                    ),
                                     isDense: true,
                                     hintText: 'Amount',
                                   ),
                                 ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.red),
+                                icon: Icon(Icons.delete, color: customRed),
                                 onPressed: () => _removeBusFeePlace(place),
                               ),
                             ],
@@ -541,34 +579,44 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
 
             const SizedBox(height: 20),
             
-            // EXAM FEE SECTION
+            // EXAM FEE CARD
             Card(
-              elevation: 4,
-              color: Colors.purple[50],
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: customRed.withOpacity(0.2)),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.assignment, color: Colors.purple, size: 24),
-                        SizedBox(width: 8),
-                        Text(
+                        Icon(Icons.assignment, color: customRed, size: 24),
+                        const SizedBox(width: 8),
+                        const Text(
                           "Exam Fee",
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.purple),
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
-                    const Divider(),
-                    const SizedBox(height: 10),
+                    Divider(color: customRed.withOpacity(0.3), height: 24),
+                    const SizedBox(height: 4),
                     TextField(
                       controller: _examFeeCtrl,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Exam Fee Amount',
                         prefixText: '₹ ',
-                        border: OutlineInputBorder(),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: customRed.withOpacity(0.5)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: customRed, width: 2),
+                        ),
                         hintText: 'Enter exam fee (e.g., 1000)',
                         helperText: 'Leave empty if no exam fee',
                       ),
@@ -582,7 +630,7 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
                           : "Exam Deadline: ${DateFormat('dd MMM yyyy').format(_examDeadline!)}",
                         style: const TextStyle(fontWeight: FontWeight.w500),
                       ),
-                      trailing: const Icon(Icons.calendar_today, color: Colors.purple),
+                      trailing: Icon(Icons.calendar_today, color: customRed),
                       onTap: () async {
                         final picked = await showDatePicker(
                           context: context,
@@ -598,7 +646,7 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
               ),
             ),
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 20),
             // ADD MORE BUTTON
             Center(
               child: PopupMenuButton<String>(
@@ -612,7 +660,7 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
                 child: Chip(
                   avatar: const Icon(Icons.add_circle, color: Colors.white),
                   label: const Text("Add Another Fee Component"),
-                  backgroundColor: Colors.indigo,
+                  backgroundColor: customRed,
                   labelStyle: const TextStyle(color: Colors.white),
                 ),
               ),
@@ -626,13 +674,16 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _saveFeeStructure,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
+                  backgroundColor: customRed,
                   foregroundColor: Colors.white,
-                  elevation: 5,
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 child: _isLoading 
                   ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text("SAVE STRUCTURE", style: TextStyle(fontSize: 16)),
+                  : const Text("SAVE STRUCTURE", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
           ],
@@ -660,7 +711,17 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
         DropdownButtonFormField<String>(
           value: items.contains(val) ? val : items.first,
           isExpanded: true,
-          decoration: const InputDecoration(border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5)),
+          decoration: InputDecoration(
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: customRed.withOpacity(0.5)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: customRed, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          ),
           items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis))).toList(),
           onChanged: onChange,
         ),

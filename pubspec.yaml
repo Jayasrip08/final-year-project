@@ -53,6 +53,8 @@ dependencies:
   permission_handler: ^11.3.1
   flutter_app_icon_badge:
     path: packages/flutter_app_icon_badge
+  confetti: ^0.8.0
+  firebase_app_check: ^0.3.2+10
 
 dev_dependencies:
   flutter_test:
@@ -79,7 +81,7 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    - assets/
+    - assets/app_logo.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

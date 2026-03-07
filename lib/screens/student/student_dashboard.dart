@@ -18,6 +18,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
   final User user = FirebaseAuth.instance.currentUser!;
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
+  int _currentIndex = 0;
+
+  // CUSTOM PROJECT COLOR
+  final Color customRed = const Color.fromARGB(255, 198, 55, 45);
 
   @override
   void initState() {
@@ -37,216 +41,259 @@ class _StudentDashboardState extends State<StudentDashboard> {
     }
   }
 
+  Widget _buildBody() {
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    
+    switch (_currentIndex) {
+      case 1:
+        return const NotificationsScreen();
+      case 2:
+        return const ProfileScreen();
+      default:
+        return _buildHomeContent();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("My Semesters"),
-        backgroundColor: Colors.indigo,
+        backgroundColor: Colors.white,
         elevation: 0,
-        actions: [
+        centerTitle: false,
+        title: Text(
+          _currentIndex == 0 ? "A-DACS" : _currentIndex == 1 ? "Notice Board" : "Profile",
+          style: TextStyle(color: customRed, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+        ),
+        actions: _currentIndex == 0 ? [
           NotificationBadge(
-            child: const Icon(Icons.notifications),
-            onTap: () {
-               Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
-            },
+            child: Icon(Icons.notifications_none_rounded, color: Colors.grey[800]),
+            onTap: () => setState(() => _currentIndex = 1),
           ),
-          IconButton(
-            icon: const Icon(Icons.person_outline),
-            tooltip: "My Profile",
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen())),
-          ),
+          const SizedBox(width: 16),
+        ] : null,
+      ),
+      body: _buildBody(),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
+        selectedItemColor: customRed,
+        unselectedItemColor: Colors.grey[400],
+        showUnselectedLabels: true,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
+        elevation: 20,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded), label: "Dashboard"),
+          BottomNavigationBarItem(icon: Icon(Icons.campaign_outlined), label: "Notice"),
+          BottomNavigationBarItem(icon: Icon(Icons.person_outline_rounded), label: "Profile"),
         ],
       ),
-      body: _isLoading 
-        ? const Center(child: CircularProgressIndicator())
-        : StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('semesters')
-                .where('academicYear', isEqualTo: _userData!['batch'] ?? '')
-                .where('isActive', isEqualTo: true)
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.school_outlined, size: 80, color: Colors.grey[300]),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No active semesters available',
-                        style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Batch: ${_userData!['batch'] ?? "Not Assigned"}',
-                        style: TextStyle(fontSize: 14, color: Colors.indigo, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Please contact admin to activate your semester.',
-                        style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-                      ),
-                    ],
-                  ),
-                );
-              }
+    );
+  }
 
-              final docs = snapshot.data!.docs.toList();
-              // Sort in-memory to avoid missing index error
-              docs.sort((a, b) {
-                final aData = a.data() as Map<String, dynamic>;
-                final bData = b.data() as Map<String, dynamic>;
-                return (aData['semesterNumber'] ?? 0).compareTo(bData['semesterNumber'] ?? 0);
-              });
+  Widget _buildHomeContent() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('semesters')
+          .where('academicYear', isEqualTo: _userData!['batch'] ?? '')
+          .where('isActive', isEqualTo: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-              return ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  _buildWalletCard(),
-                  const SizedBox(height: 8),
-                  ...docs.map((semesterDoc) {
-                    var semesterData = semesterDoc.data() as Map<String, dynamic>;
-                    String sem = semesterData['semesterNumber'].toString();
-                    
-                    return Card(
-                      elevation: 2,
-                      margin: const EdgeInsets.only(bottom: 16),
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => SemesterDetailScreen(
-                                userData: _userData!,
-                                semester: sem,
-                              )
-                            ),
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(10),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text("Semester $sem", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.indigo)),
-                                  const SizedBox(height: 4),
-                                  if (semesterData['academicSession'] != null && semesterData['academicSession'].toString().isNotEmpty)
-                                    Text(
-                                      semesterData['academicSession'],
-                                      style: TextStyle(
-                                        color: Colors.indigo[300],
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14
-                                      ),
-                                    ),
-                                  const SizedBox(height: 4),
-                                  // Display Date Range
-                                  if (semesterData['startDate'] != null && semesterData['endDate'] != null)
-                                    Builder(
-                                      builder: (context) {
-                                        final start = (semesterData['startDate'] as Timestamp).toDate();
-                                        final end = (semesterData['endDate'] as Timestamp).toDate();
-                                        final dateFormat = DateFormat('dd MMM yyyy');
-                                        return Text(
-                                          "${dateFormat.format(start)} - ${dateFormat.format(end)}",
-                                          style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                                        );
-                                      }
-                                    ),
-                                  const SizedBox(height: 5),
-                                  const Text("Tap to view fees & upload bills", style: TextStyle(color: Colors.grey)),
-                                ],
-                              ),
-                              const Icon(Icons.arrow_forward_ios, color: Colors.indigo),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-                ],
-              );
-            },
+        final docs = snapshot.data?.docs ?? [];
+        
+        return ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          children: [
+            // ── GREETING & IDENTITY HEADER ────────────────────────
+            _buildGreetingHeader(),
+            
+            const SizedBox(height: 24),
+            _buildWalletCard(),
+            
+            const SizedBox(height: 32),
+            // ── QUICK ACTIONS ─────────────────────────────────────
+            const Text("Quick Actions", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            _buildQuickActionGrid(),
+
+            const SizedBox(height: 32),
+            // ── SEMESTER LIST ─────────────────────────────────────
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("Active Semesters", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                if (docs.isNotEmpty)
+                  Text("${docs.length} Active", style: TextStyle(color: customRed, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            
+            if (docs.isEmpty) 
+              _buildEmptyState()
+            else
+              ...docs.map((doc) => _buildSemesterCard(doc)),
+            
+            const SizedBox(height: 20),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildGreetingHeader() {
+    String firstName = _userData!['name']?.split(' ')[0] ?? 'Student';
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Welcome back,", style: TextStyle(color: Colors.grey[500], fontSize: 16)),
+            Text(
+              firstName,
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black87),
+            ),
+          ],
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: customRed.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
           ),
+          child: Text(
+            _userData!['dept'] ?? 'N/A',
+            style: TextStyle(color: customRed, fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickActionGrid() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        _quickActionItem(Icons.history_edu_rounded, "Clearance"),
+        _quickActionItem(Icons.account_balance_rounded, "Fees"),
+        _quickActionItem(Icons.file_present_rounded, "Documents"),
+        _quickActionItem(Icons.help_outline_rounded, "Support"),
+      ],
+    );
+  }
+
+  Widget _quickActionItem(IconData icon, String label) {
+    return Column(
+      children: [
+        Container(
+          height: 60,
+          width: 60,
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey[200]!),
+          ),
+          child: Icon(icon, color: Colors.grey[700], size: 28),
+        ),
+        const SizedBox(height: 8),
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[800], fontWeight: FontWeight.w500)),
+      ],
     );
   }
 
   Widget _buildWalletCard() {
-    // Use a StreamBuilder so wallet balance updates in real-time
-    // when admin credits the student's wallet — no page reload needed.
     return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .snapshots(),
+      stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
       builder: (context, snapshot) {
         final data = snapshot.data?.data() as Map<String, dynamic>?;
         final double balance = (data?['walletBalance'] as num?)?.toDouble() ?? 0.0;
-        if (balance <= 0) return const SizedBox.shrink();
 
-        return Card(
-          elevation: 4,
-          shadowColor: Colors.green.withOpacity(0.3),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(15),
-              gradient: LinearGradient(
-                colors: [Colors.green.shade600, Colors.green.shade400],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [customRed, customRed.withOpacity(0.8)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(color: customRed.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10)),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("Wallet Balance", style: TextStyle(color: Colors.white70, fontSize: 14)),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "₹${balance.toStringAsFixed(0)}",
+                    style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold),
+                  ),
+                  const Icon(Icons.account_balance_wallet_rounded, color: Colors.white24, size: 48),
+                ],
               ),
-            ),
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                const Icon(Icons.account_balance_wallet, color: Colors.white, size: 40),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Wallet Balance",
-                        style: TextStyle(color: Colors.white70, fontSize: 14),
-                      ),
-                      Text(
-                        "₹${balance.toStringAsFixed(0)}",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    "CREDIT",
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
-                  ),
-                ),
-              ],
-            ),
+              const SizedBox(height: 12),
+              const Text("Automatic Fee Deduction Enabled", style: TextStyle(color: Colors.white60, fontSize: 11)),
+            ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildSemesterCard(QueryDocumentSnapshot doc) {
+    var data = doc.data() as Map<String, dynamic>;
+    String sem = data['semesterNumber'].toString();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey[100]!),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        leading: Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(color: customRed.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+          child: Center(child: Text(sem, style: TextStyle(color: customRed, fontWeight: FontWeight.bold, fontSize: 20))),
+        ),
+        title: Text("Semester $sem", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        subtitle: Text(data['academicSession'] ?? 'Active Session', style: TextStyle(color: Colors.grey[600])),
+        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => SemesterDetailScreen(userData: _userData!, semester: sem)),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Column(
+      children: [
+        const SizedBox(height: 40),
+        Icon(Icons.school_outlined, size: 80, color: Colors.grey[200]),
+        const SizedBox(height: 16),
+        const Text("No Active Semesters", style: TextStyle(color: Colors.grey, fontSize: 16)),
+        Text("Batch: ${_userData!['batch']}", style: const TextStyle(color: Colors.grey, fontSize: 12)),
+      ],
     );
   }
 }

@@ -10,6 +10,8 @@ class AdminStudentList extends StatefulWidget {
 }
 
 class _AdminStudentListState extends State<AdminStudentList> {
+  final Color customRed = const Color.fromARGB(255, 198, 55, 45);
+
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = "";
   
@@ -22,7 +24,7 @@ class _AdminStudentListState extends State<AdminStudentList> {
       children: [
         // CONTROLS AREA
         Container(
-          padding: const EdgeInsets.all(12.0),
+          padding: const EdgeInsets.all(16.0),
           color: Colors.grey[50],
           child: Column(
             children: [
@@ -31,21 +33,35 @@ class _AdminStudentListState extends State<AdminStudentList> {
                 controller: _searchCtrl,
                 decoration: InputDecoration(
                   hintText: "Search by Name or RegNo",
-                  prefixIcon: const Icon(Icons.search),
+                  prefixIcon: Icon(Icons.search, color: customRed),
                   suffixIcon: _searchQuery.isNotEmpty 
-                    ? IconButton(icon: const Icon(Icons.clear), onPressed: () {
-                        _searchCtrl.clear();
-                        setState(() => _searchQuery = "");
-                      }) 
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, color: Colors.grey),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() => _searchQuery = "");
+                        },
+                      ) 
                     : null,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: customRed, width: 2),
+                  ),
                   filled: true,
                   fillColor: Colors.white,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                 ),
                 onChanged: (val) => setState(() => _searchQuery = val.toLowerCase()),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               
               // Filters Row
               Row(
@@ -61,16 +77,29 @@ class _AdminStudentListState extends State<AdminStudentList> {
                         }
                         
                         return DropdownButtonFormField<String>(
-                          value: depts.contains(_selectedDept) ? _selectedDept : null,
+                          value: _selectedDept,
                           decoration: InputDecoration(
                             labelText: "Department",
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                            fillColor: Colors.white,
+                            labelStyle: TextStyle(color: Colors.grey[600]),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: customRed, width: 2),
+                            ),
                             filled: true,
+                            fillColor: Colors.white,
                           ),
+                          icon: Icon(Icons.arrow_drop_down, color: customRed),
                           items: [
-                            const DropdownMenuItem(value: null, child: Text("All Depts")),
+                            const DropdownMenuItem(value: null, child: Text("All Departments")),
                             ...depts.map((d) => DropdownMenuItem(value: d, child: Text(d))),
                           ],
                           onChanged: (val) => setState(() => _selectedDept = val),
@@ -80,7 +109,7 @@ class _AdminStudentListState extends State<AdminStudentList> {
                   ),
                   const SizedBox(width: 10),
                   
-                  // Batch Filter (Fetching from academic_years)
+                  // Batch Filter
                   Expanded(
                     child: StreamBuilder<QuerySnapshot>(
                       stream: FirebaseFirestore.instance.collection('academic_years').snapshots(),
@@ -88,17 +117,30 @@ class _AdminStudentListState extends State<AdminStudentList> {
                         List<String> batches = [];
                         if (snapshot.hasData) {
                           batches = snapshot.data!.docs.map((d) => d['name'] as String).toList();
-                          batches.sort((a, b) => b.compareTo(a)); // Newest first
+                          batches.sort((a, b) => b.compareTo(a));
                         }
                         return DropdownButtonFormField<String>(
                           value: _selectedBatch,
                           decoration: InputDecoration(
                             labelText: "Batch",
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                            fillColor: Colors.white,
+                            labelStyle: TextStyle(color: Colors.grey[600]),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: customRed, width: 2),
+                            ),
                             filled: true,
+                            fillColor: Colors.white,
                           ),
+                          icon: Icon(Icons.arrow_drop_down, color: customRed),
                           items: [
                             const DropdownMenuItem(value: null, child: Text("All Batches")),
                             ...batches.map((b) => DropdownMenuItem(value: b, child: Text(b))),
@@ -125,8 +167,6 @@ class _AdminStudentListState extends State<AdminStudentList> {
                 query = query.where('dept', isEqualTo: _selectedDept);
               }
               
-              // Note: Case-insensitive search requires a helper library or normalized fields.
-              // We'll keep search and batch filtering client-side for now, or suggest indexing.
               return query.snapshots();
             })(),
             builder: (context, snapshot) {
@@ -135,10 +175,21 @@ class _AdminStudentListState extends State<AdminStudentList> {
               }
 
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const Center(child: Text("No students registered."));
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.people_outline, size: 80, color: Colors.grey[400]),
+                      const SizedBox(height: 16),
+                      const Text(
+                        "No students registered.",
+                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                );
               }
 
-              // Client-side Filter
               var docs = snapshot.data!.docs.where((doc) {
                 var data = doc.data() as Map<String, dynamic>;
                 String name = (data['name'] ?? '').toString().toLowerCase();
@@ -146,20 +197,27 @@ class _AdminStudentListState extends State<AdminStudentList> {
                 String dept = (data['dept'] ?? '');
                 String batch = (data['batch'] ?? '');
 
-                // 1. Search Filter
                 bool matchSearch = name.contains(_searchQuery) || regNo.contains(_searchQuery);
-                
-                // 2. Dept Filter
                 bool matchDept = _selectedDept == null || dept == _selectedDept;
-
-                // 3. Batch Filter
                 bool matchBatch = _selectedBatch == null || batch == _selectedBatch;
 
                 return matchSearch && matchDept && matchBatch;
               }).toList();
 
               if (docs.isEmpty) {
-                 return const Center(child: Text("No matching students found"));
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.filter_list_off, size: 80, color: Colors.grey[400]),
+                      const SizedBox(height: 16),
+                      const Text(
+                        "No matching students found",
+                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                );
               }
 
               return ListView.builder(
@@ -171,37 +229,96 @@ class _AdminStudentListState extends State<AdminStudentList> {
 
                   return Card(
                     elevation: 2,
-                    margin: const EdgeInsets.only(bottom: 10),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: Colors.indigo.shade100,
-                        child: Text(
-                          (data['name'] ?? '?')[0].toUpperCase(),
-                          style: TextStyle(color: Colors.indigo.shade900),
-                        ),
-                      ),
-                      title: Text(data['name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Column(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(color: customRed.withOpacity(0.2)),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text("${data['regNo']} | ${data['dept']} | ${data['batch']}"),
-                          Text("Email: ${data['email'] ?? 'No email'}", style: TextStyle(fontSize: 12, color: Colors.indigo.shade300)),
-                          Text("Parent: ${data['parentPhoneNumber'] ?? 'N/A'}", style: TextStyle(fontSize: 12, color: Colors.green.shade700)),
-                        ],
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blue),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => AdminEditStudent(
-                                studentData: data,
-                                studentId: doc.id,
+                          // Avatar
+                          Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: customRed.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                (data['name'] ?? '?')[0].toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: customRed,
+                                ),
                               ),
                             ),
-                          );
-                        },
+                          ),
+                          const SizedBox(width: 16),
+                          // Details
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  data['name'] ?? 'Unknown',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  "${data['regNo']} | ${data['dept']} | ${data['batch']}",
+                                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Icon(Icons.email_outlined, size: 14, color: customRed.withOpacity(0.7)),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        data['email'] ?? 'No email',
+                                        style: TextStyle(fontSize: 12, color: customRed.withOpacity(0.7)),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    Icon(Icons.phone_outlined, size: 14, color: Colors.green[700]),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      "Parent: ${data['parentPhoneNumber'] ?? 'N/A'}",
+                                      style: TextStyle(fontSize: 12, color: Colors.green[700]),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Edit button
+                          IconButton(
+                            icon: Icon(Icons.edit, color: customRed),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => AdminEditStudent(
+                                    studentData: data,
+                                    studentId: doc.id,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                       ),
                     ),
                   );

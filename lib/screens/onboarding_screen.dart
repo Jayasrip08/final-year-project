@@ -43,6 +43,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white, // SET: Background to white
       body: SafeArea(
         child: Column(
           children: [
@@ -82,6 +83,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       }
                     },
                     style: ElevatedButton.styleFrom(
+                      backgroundColor: Color.fromARGB(255, 198, 55, 45), // SET: Button background to red
+                      foregroundColor: Colors.white, // SET: Button text to white
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                       padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
                     ),
@@ -106,7 +109,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       height: 6,
       width: _currentPage == index ? 20 : 6,
       decoration: BoxDecoration(
-        color: _currentPage == index ? Colors.indigo : Colors.grey[300],
+        color: _currentPage == index ? Color.fromARGB(255, 198, 55, 45) : Colors.grey[300], // SET: Active dot to red
         borderRadius: BorderRadius.circular(3),
       ),
     );
@@ -149,13 +152,13 @@ class OnboardingContent extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(30),
             decoration: BoxDecoration(
-              color: Colors.indigo.withOpacity(0.1),
+              color: Color.fromARGB(255, 198, 55, 45).withOpacity(0.1), // SET: Icon circle background to light red
               shape: BoxShape.circle,
             ),
             child: Icon(
               icon,
               size: 100,
-              color: Colors.indigo,
+              color: Color.fromARGB(255, 198, 55, 45), // SET: Icon color to red
             ),
           ),
           const SizedBox(height: 48),

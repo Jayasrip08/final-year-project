@@ -185,7 +185,7 @@ class _AdminStaffDatabaseState extends State<AdminStaffDatabase> {
                                  depts = snapshot.data!.docs.map((d) => d['name'] as String).toList();
                                }
                                return DropdownButtonFormField<String>(
-                                 value: _deptCtrl.text.isNotEmpty && depts.contains(_deptCtrl.text) ? _deptCtrl.text : null,
+                                 initialValue: _deptCtrl.text.isNotEmpty && depts.contains(_deptCtrl.text) ? _deptCtrl.text : null,
                                  decoration: const InputDecoration(labelText: "Dept"),
                                  items: depts.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
                                  onChanged: (val) {

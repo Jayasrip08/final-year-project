@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 
 class FlutterAppIconBadge {
   static const MethodChannel _channel =
-      const MethodChannel('flutter_app_icon_badge');
+      MethodChannel('flutter_app_icon_badge');
 
   /// Change badge on app icon
   static Future<void> updateBadge(int count) async {

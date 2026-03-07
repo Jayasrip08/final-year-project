@@ -14,6 +14,8 @@ class PaymentListTab extends StatefulWidget {
 }
 
 class _PaymentListTabState extends State<PaymentListTab> with AutomaticKeepAliveClientMixin {
+  final Color customRed = const Color.fromARGB(255, 198, 55, 45);
+
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = "";
 
@@ -24,11 +26,11 @@ class _PaymentListTabState extends State<PaymentListTab> with AutomaticKeepAlive
   }
 
   @override
-  bool get wantKeepAlive => true; // Prevents rebuilding when switching tabs
+  bool get wantKeepAlive => true;
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); // Required for KeepAlive
+    super.build(context);
 
     Query query = FirebaseFirestore.instance.collection('payments');
     
@@ -47,15 +49,28 @@ class _PaymentListTabState extends State<PaymentListTab> with AutomaticKeepAlive
             controller: _searchCtrl,
             decoration: InputDecoration(
               hintText: "Search by Reg No...",
-              prefixIcon: const Icon(Icons.search),
+              prefixIcon: Icon(Icons.search, color: customRed),
               suffixIcon: _searchQuery.isNotEmpty 
-                ? IconButton(icon: const Icon(Icons.clear), onPressed: () {
-                    _searchCtrl.clear();
-                    setState(() => _searchQuery = "");
-                  })
+                ? IconButton(
+                    icon: const Icon(Icons.clear, color: Colors.grey),
+                    onPressed: () {
+                      _searchCtrl.clear();
+                      setState(() => _searchQuery = "");
+                    })
                 : null,
               contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey[300]!),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey[300]!),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: customRed, width: 2),
+              ),
               filled: true,
               fillColor: Colors.white,
             ),
@@ -141,7 +156,7 @@ class _PaymentListTabState extends State<PaymentListTab> with AutomaticKeepAlive
                     statusColor = Colors.green[700]!;
                     statusIcon = Icons.verified;
                   } else if (status == 'rejected') {
-                    statusColor = Colors.red[700]!;
+                    statusColor = customRed;
                     statusIcon = Icons.error_outline;
                   } else {
                     statusColor = Colors.orange[800]!;
@@ -149,10 +164,12 @@ class _PaymentListTabState extends State<PaymentListTab> with AutomaticKeepAlive
                   }
 
                   return Card(
-                    elevation: 4,
-                    shadowColor: Colors.black12,
+                    elevation: 2,
                     margin: const EdgeInsets.only(bottom: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(color: customRed.withOpacity(0.2)),
+                    ),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(16),
                       onTap: () {
@@ -173,57 +190,96 @@ class _PaymentListTabState extends State<PaymentListTab> with AutomaticKeepAlive
                         child: Column(
                           children: [
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 18,
-                                      backgroundColor: Colors.white,
-                                      child: Text(studentName[0].toUpperCase(), style: TextStyle(color: statusColor, fontWeight: FontWeight.bold)),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(studentName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                                        Text("$regNo  •  $dept", style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                                      ],
-                                    ),
-                                  ],
-                                ),
+                                // Avatar
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  width: 48,
+                                  height: 48,
                                   decoration: BoxDecoration(
-                                    color: Colors.blue.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(color: Colors.blue.withOpacity(0.3))
+                                    color: customRed.withOpacity(0.1),
+                                    shape: BoxShape.circle,
                                   ),
-                                  child: Text(
-                                    (data['isInstallment'] == true) 
-                                       ? "INST ${data['installmentNumber'] ?? '?'}" 
-                                       : "FULL", 
-                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue)
+                                  child: Center(
+                                    child: Text(
+                                      studentName[0].toUpperCase(),
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        color: customRed,
+                                      ),
+                                    ),
                                   ),
                                 ),
+                                const SizedBox(width: 12),
+                                // Student Info
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        studentName,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        "$regNo  •  $dept",
+                                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // Installment Chip
+                                if (data['isInstallment'] == true)
+                                  Container(
+                                    margin: const EdgeInsets.only(right: 8),
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                                    ),
+                                    child: Text(
+                                      "INST ${data['installmentNumber'] ?? '?'}",
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blue,
+                                      ),
+                                    ),
+                                  ),
+                                // Status Chip
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                                   decoration: BoxDecoration(
                                     color: statusColor.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(color: statusColor.withOpacity(0.3))
+                                    border: Border.all(color: statusColor.withOpacity(0.3)),
                                   ),
                                   child: Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(statusIcon, size: 14, color: statusColor),
                                       const SizedBox(width: 4),
-                                      Text(status.toUpperCase(), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: statusColor)),
+                                      Text(
+                                        status.toUpperCase(),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: statusColor,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
                               ],
                             ),
-                            const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Divider(height: 1)),
+                            const SizedBox(height: 12),
+                            const Divider(height: 1),
+                            const SizedBox(height: 12),
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
@@ -231,23 +287,35 @@ class _PaymentListTabState extends State<PaymentListTab> with AutomaticKeepAlive
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(feeType, style: TextStyle(color: Colors.grey[700], fontSize: 13)),
+                                      Text(
+                                        feeType,
+                                        style: TextStyle(color: Colors.grey[700], fontSize: 13),
+                                      ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        "₹${amount.toStringAsFixed(0)}", 
+                                        "₹${amount.toStringAsFixed(0)}",
                                         style: TextStyle(
-                                          fontSize: 20, 
-                                          fontWeight: FontWeight.bold, 
-                                          color: Colors.indigo[900],
-                                          fontFamily: 'Roboto',
-                                        )
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.bold,
+                                          color: customRed,
+                                        ),
                                       ),
                                       const SizedBox(height: 4),
                                       Row(
                                         children: [
                                           Icon(Icons.receipt_long, size: 12, color: Colors.grey[500]),
                                           const SizedBox(width: 4),
-                                          Text(transactionId, style: TextStyle(fontFamily: 'monospace', fontSize: 12, color: Colors.grey[600])),
+                                          Expanded(
+                                            child: Text(
+                                              transactionId,
+                                              style: TextStyle(
+                                                fontFamily: 'monospace',
+                                                fontSize: 12,
+                                                color: Colors.grey[600],
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
                                           if (data['ocrVerified'] == true) ...[
                                             const SizedBox(width: 8),
                                             Container(
@@ -255,17 +323,25 @@ class _PaymentListTabState extends State<PaymentListTab> with AutomaticKeepAlive
                                               decoration: BoxDecoration(
                                                 color: Colors.green[50],
                                                 borderRadius: BorderRadius.circular(4),
-                                                border: Border.all(color: Colors.green[200]!)
+                                                border: Border.all(color: Colors.green[200]!),
                                               ),
                                               child: Row(
+                                                mainAxisSize: MainAxisSize.min,
                                                 children: [
                                                   Icon(Icons.document_scanner, size: 10, color: Colors.green[700]),
                                                   const SizedBox(width: 2),
-                                                  Text("OCR Verified", style: TextStyle(fontSize: 10, color: Colors.green[800], fontWeight: FontWeight.bold)),
+                                                  Text(
+                                                    "OCR Verified",
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      color: Colors.green[800],
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
                                                 ],
                                               ),
-                                            )
-                                          ]
+                                            ),
+                                          ],
                                         ],
                                       ),
                                     ],
@@ -274,24 +350,27 @@ class _PaymentListTabState extends State<PaymentListTab> with AutomaticKeepAlive
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
-                                    Text(dateStr, style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                                    Text(
+                                      dateStr,
+                                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                                    ),
                                     const SizedBox(height: 8),
                                     if (widget.isPending || status == 'verified' || status == 'rejected')
                                       Row(
                                         children: [
                                           Text(
-                                            widget.isPending ? "Review" : "Revert", 
+                                            widget.isPending ? "Review" : "Revert",
                                             style: TextStyle(
-                                              color: widget.isPending ? Colors.blue[700] : Colors.orange[800], 
-                                              fontWeight: FontWeight.bold, 
-                                              fontSize: 13
-                                            )
+                                              color: widget.isPending ? Colors.blue[700] : customRed,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                            ),
                                           ),
                                           const SizedBox(width: 4),
                                           Icon(
-                                            widget.isPending ? Icons.arrow_forward : Icons.restore, 
-                                            size: 16, 
-                                            color: widget.isPending ? Colors.blue[700] : Colors.orange[800]
+                                            widget.isPending ? Icons.arrow_forward : Icons.restore,
+                                            size: 16,
+                                            color: widget.isPending ? Colors.blue[700] : customRed,
                                           ),
                                         ],
                                       ),
@@ -301,13 +380,29 @@ class _PaymentListTabState extends State<PaymentListTab> with AutomaticKeepAlive
                             ),
                             if (status == 'rejected' && data['rejectionReason'] != null)
                               Container(
-                                margin: const EdgeInsets.only(top: 10),
-                                padding: const EdgeInsets.all(8),
+                                margin: const EdgeInsets.only(top: 12),
+                                padding: const EdgeInsets.all(10),
                                 width: double.infinity,
-                                decoration: BoxDecoration(color: Colors.red[50], borderRadius: BorderRadius.circular(8)),
-                                child: Text(
-                                  "Reason: ${data['rejectionReason']}",
-                                  style: TextStyle(color: Colors.red[900], fontSize: 12, fontStyle: FontStyle.italic),
+                                decoration: BoxDecoration(
+                                  color: customRed.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: customRed.withOpacity(0.2)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.info_outline, size: 14, color: customRed),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        "Reason: ${data['rejectionReason']}",
+                                        style: TextStyle(
+                                          color: customRed,
+                                          fontSize: 12,
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                           ],
@@ -331,18 +426,28 @@ class _PaymentListTabState extends State<PaymentListTab> with AutomaticKeepAlive
         title: const Text("Revert Payment?"),
         content: Text("This payment is marked as ${currentStatus.toUpperCase()}. Do you want to revert it back to Pending status?"),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text("Cancel", style: TextStyle(color: customRed)),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: customRed,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () async {
               Navigator.pop(ctx);
               await FeeService().revertPayment(docId);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Payment Reverted to Pending")));
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Payment Reverted to Pending")),
+                );
+              }
             },
             child: const Text("Revert to Pending"),
           )
         ],
-      )
+      ),
     );
   }
 }

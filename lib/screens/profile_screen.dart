@@ -9,6 +9,9 @@ class ProfileScreen extends StatelessWidget {
   final bool showLogout;
   const ProfileScreen({super.key, this.drawer, this.showLogout = true});
 
+  // CUSTOM PROJECT COLOR
+  final Color customRed = const Color.fromARGB(255, 198, 55, 45);
+
   Future<void> _logout(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -22,7 +25,7 @@ class ProfileScreen extends StatelessWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Logout', style: TextStyle(color: Colors.red)),
+            child: Text('Logout', style: TextStyle(color: customRed)),
           ),
         ],
       ),
@@ -49,11 +52,11 @@ class ProfileScreen extends StatelessWidget {
     }
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA), // Slightly off-white for better card contrast
       appBar: AppBar(
-        title: const Text("My Profile"),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
         elevation: 0,
+        centerTitle: false,
       ),
       drawer: drawer,
       body: FutureBuilder<DocumentSnapshot>(
@@ -76,175 +79,129 @@ class ProfileScreen extends StatelessWidget {
           final email = data['email'] ?? user.email ?? 'N/A';
 
           return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
             child: Column(
               children: [
-                // ── Header ──────────────────────────────────────────────────
-                Container(
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
-                    color: Colors.indigo,
-                    borderRadius: BorderRadius.only(
-                      bottomLeft: Radius.circular(30),
-                      bottomRight: Radius.circular(30),
-                    ),
-                  ),
-                  padding: const EdgeInsets.only(bottom: 30),
+                const SizedBox(height: 20),
+                
+                // ── Modern Profile Header ──────────────────────────────────
+                Center(
                   child: Column(
                     children: [
-                      const CircleAvatar(
-                        radius: 50,
-                        backgroundColor: Colors.white,
-                        child:
-                            Icon(Icons.person, size: 60, color: Colors.indigo),
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: customRed.withOpacity(0.2), width: 2),
+                        ),
+                        child: CircleAvatar(
+                          radius: 50,
+                          backgroundColor: customRed.withOpacity(0.05),
+                          child: Icon(Icons.person_rounded, size: 60, color: customRed),
+                        ),
                       ),
-                      const SizedBox(height: 15),
+                      const SizedBox(height: 16),
                       Text(
                         name,
                         style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: Color(0xFF1A1A1A),
                         ),
                       ),
-                      Text(
-                        role.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.indigo[100],
-                          letterSpacing: 1.2,
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: customRed,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          role.toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            letterSpacing: 1.5,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 30),
 
-                // ── Account Information ──────────────────────────────────────
+                // ── Information Sections ─────────────────────────────────────
                 Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Card(
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Icon(Icons.badge, color: Colors.indigo),
-                              SizedBox(width: 10),
-                              Text(
-                                "Account Information",
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.indigo,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Divider(),
-                          _profileItem("Email", email),
-                          _profileItem("Role", role.toUpperCase()),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildInfoGroup(
+                        title: "ACADEMIC DETAILS",
+                        items: [
+                          _profileTile(Icons.alternate_email_rounded, "Email Address", email),
                           if (role == 'student') ...[
-                            _profileItem(
-                                "Department", data['dept'] ?? 'N/A'),
-                            _profileItem(
-                                "Register No", data['regNo'] ?? 'N/A'),
-                            _profileItem("Batch", data['batch'] ?? 'N/A'),
-                            _profileItem(
-                                "Parent's Phone", data['parentPhoneNumber'] ?? 'N/A'),
-                            _profileItem(
-                                "My Phone", data['phone'] ?? 'N/A'),
-                            _profileItem(
-                                "Quota", data['quotaCategory'] ?? 'N/A'),
-                            _profileItem("Study Type",
-                                _formatStudentType(data['studentType'])),
-                            if (data['studentType'] == 'bus_user')
-                              _profileItem(
-                                  "Bus Point", data['busPlace'] ?? 'N/A'),
-                            _profileItem(
-                                "Wallet Balance", 
-                                "₹${((data['walletBalance'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(0)}",
-                                color: Colors.green),
-                          ] else if (role == 'staff' || role == 'admin') ...[
-                            if (data['dept'] != null)
-                              _profileItem("Department", data['dept']),
-                            _profileItem(
-                                "Employee ID", data['employeeId'] ?? 'N/A'),
-                            if (data['employeeId'] != null && data['employeeId'].toString().isNotEmpty)
-                              FutureBuilder<DocumentSnapshot>(
-                                future: FirebaseFirestore.instance.collection('staff_master_list').doc(data['employeeId']).get(),
-                                builder: (context, staffSnapshot) {
-                                  String displayPhone = data['phone'] ?? 'N/A';
-                                  if (staffSnapshot.hasData && staffSnapshot.data!.exists) {
-                                    displayPhone = staffSnapshot.data!['phone'] ?? displayPhone;
-                                  }
-                                  return _profileItem("Phone Number", displayPhone);
-                                },
-                              )
-                            else
-                              _profileItem("Phone Number", data['phone'] ?? 'N/A'),
+                            _profileTile(Icons.account_balance_rounded, "Department", data['dept'] ?? 'N/A'),
+                            _profileTile(Icons.fingerprint_rounded, "Register Number", data['regNo'] ?? 'N/A'),
+                            _profileTile(Icons.event_note_rounded, "Current Batch", data['batch'] ?? 'N/A'),
+                            _profileTile(Icons.workspace_premium_rounded, "Admission Quota", data['quotaCategory'] ?? 'N/A'),
+                          ] else ...[
+                            if (data['dept'] != null) _profileTile(Icons.account_balance_rounded, "Department", data['dept']),
+                            _profileTile(Icons.badge_rounded, "Employee ID", data['employeeId'] ?? 'N/A'),
                           ],
                         ],
                       ),
-                    ),
-                  ),
-                ),
+                      
+                      const SizedBox(height: 20),
+                      
+                      _buildInfoGroup(
+                        title: "CONTACT & FINANCE",
+                        items: [
+                          if (role == 'student') ...[
+                            _profileTile(Icons.phone_iphone_rounded, "Student Phone", data['phone'] ?? 'N/A'),
+                            _profileTile(Icons.family_restroom_rounded, "Parent Phone", data['parentPhoneNumber'] ?? 'N/A'),
+                            _profileTile(
+                              Icons.account_balance_wallet_rounded, 
+                              "Wallet Balance", 
+                              "₹${((data['walletBalance'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(0)}",
+                              isPrimary: true,
+                            ),
+                          ] else ...[
+                            _profileTile(Icons.phone_iphone_rounded, "Contact Number", data['phone'] ?? 'N/A'),
+                          ],
+                        ],
+                      ),
 
-                const SizedBox(height: 10),
+                      const SizedBox(height: 30),
 
-                // ── Security status ──────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15)),
-                    child: const ListTile(
-                      leading: Icon(Icons.verified_user, color: Colors.green),
-                      title: Text("Account Verified"),
-                      subtitle:
-                          Text("Your account is secured with email auth"),
-                      trailing:
-                          Icon(Icons.check_circle, color: Colors.green),
-                    ),
-                  ),
-                ),
-
-                if (showLogout) ...[
-                  const SizedBox(height: 24),
-                  // ── Logout Button ──────────────────────────────────────────
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () => _logout(context),
-                        icon: const Icon(Icons.logout, color: Colors.red),
-                        label: const Text(
-                          'Logout',
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                      // ── Logout Action ──────────────────────────────────────────
+                      if (showLogout)
+                        SizedBox(
+                          width: double.infinity,
+                          child: TextButton(
+                            onPressed: () => _logout(context),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              backgroundColor: customRed.withOpacity(0.08),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: Text(
+                              "LOGOUT FROM DEVICE",
+                              style: TextStyle(
+                                color: customRed,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
                           ),
                         ),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          side: const BorderSide(color: Colors.red, width: 1.5),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                    ),
+                      
+                      const SizedBox(height: 40),
+                    ],
                   ),
-                ],
-
-                const SizedBox(height: 30),
+                ),
               ],
             ),
           );
@@ -253,16 +210,70 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _profileItem(String label, String value, {Color? color}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10.0),
+  Widget _buildInfoGroup({required String title, required List<Widget> items}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 10),
+          child: Text(
+            title,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.black45, letterSpacing: 1.1),
+          ),
+        ),
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(children: items),
+        ),
+      ],
+    );
+  }
+
+  Widget _profileTile(IconData icon, String label, String value, {bool isPrimary = false}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.grey[50]!, width: 1)),
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style: const TextStyle(
-                  color: Colors.grey, fontWeight: FontWeight.w500)),
-          Text(value, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: isPrimary ? customRed.withOpacity(0.1) : Colors.grey[50],
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 20, color: isPrimary ? customRed : Colors.grey[600]),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: TextStyle(color: Colors.grey[500], fontSize: 11, fontWeight: FontWeight.w500)),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: isPrimary ? customRed : const Color(0xFF2D2D2D),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -271,14 +282,10 @@ class ProfileScreen extends StatelessWidget {
   String _formatStudentType(String? type) {
     if (type == null) return 'N/A';
     switch (type) {
-      case 'day_scholar':
-        return 'Day Scholar';
-      case 'hosteller':
-        return 'Hosteller';
-      case 'bus_user':
-        return 'Bus User';
-      default:
-        return type;
+      case 'day_scholar': return 'Day Scholar';
+      case 'hosteller': return 'Hosteller';
+      case 'bus_user': return 'Bus User';
+      default: return type;
     }
   }
 }
