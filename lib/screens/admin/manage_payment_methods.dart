@@ -6,7 +6,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 
 class ManagePaymentMethodsScreen extends StatefulWidget {
-  final Widget? drawer; // NEW
+  final Widget? drawer;
   const ManagePaymentMethodsScreen({super.key, this.drawer});
 
   @override
@@ -14,19 +14,23 @@ class ManagePaymentMethodsScreen extends StatefulWidget {
 }
 
 class _ManagePaymentMethodsScreenState extends State<ManagePaymentMethodsScreen> {
+  final Color customRed = const Color.fromARGB(255, 198, 55, 45);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: widget.drawer, // NEW
+      drawer: widget.drawer,
       appBar: AppBar(
         title: const Text("Manage Payment Details"),
-        backgroundColor: Colors.indigo,
+        backgroundColor: customRed,
+        foregroundColor: Colors.white,
+        elevation: 0.5,
+        centerTitle: true,
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddEditDialog(),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white, // Changed "blue pulse" (plus) to white
+        backgroundColor: customRed,
+        foregroundColor: Colors.white,
         child: const Icon(Icons.add),
       ),
       body: StreamBuilder<QuerySnapshot>(
@@ -56,29 +60,78 @@ class _ManagePaymentMethodsScreenState extends State<ManagePaymentMethodsScreen>
             itemBuilder: (context, index) {
               final doc = docs[index];
               final data = doc.data() as Map<String, dynamic>;
-              final feeType = doc.id.replaceAll('_', ' '); // Restore space for display? Or use stored name. No, ID is sanitized.
+              final feeType = doc.id.replaceAll('_', ' ');
               
               return Card(
-                elevation: 3,
+                elevation: 2,
                 margin: const EdgeInsets.only(bottom: 16),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.all(16),
-                  leading: data['qrCodeUrl'] != null 
-                     ? Image.network(data['qrCodeUrl'], width: 50, height: 50, fit: BoxFit.cover)
-                     : const Icon(Icons.qr_code_2, size: 40, color: Colors.indigo),
-                  title: Text(data['feeType'] ?? feeType, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Column(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: customRed.withOpacity(0.2)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                       if (data['bankName'] != null) Text("${data['bankName']} • ${data['accountNumber']}"),
-                       if (data['upiId'] != null) Text("UPI: ${data['upiId']}"),
-                    ],
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                       IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _showAddEditDialog(doc: doc)),
-                       IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _deleteMethod(doc.id)),
+                      // QR Code or Icon
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: customRed.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: data['qrCodeUrl'] != null
+                              ? Image.network(
+                                  data['qrCodeUrl'],
+                                  width: 60,
+                                  height: 60,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (ctx, err, stack) => Icon(Icons.qr_code_2, color: customRed, size: 30),
+                                )
+                              : Icon(Icons.qr_code_2, color: customRed, size: 30),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      // Details
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              data['feeType'] ?? feeType,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                            const SizedBox(height: 4),
+                            if (data['bankName'] != null)
+                              Text(
+                                "${data['bankName']} • ${data['accountNumber'] ?? ''}",
+                                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                              ),
+                            if (data['upiId'] != null)
+                              Text(
+                                "UPI: ${data['upiId']}",
+                                style: TextStyle(color: customRed, fontSize: 13, fontWeight: FontWeight.w500),
+                              ),
+                          ],
+                        ),
+                      ),
+                      // Action buttons
+                      Column(
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.edit, color: customRed),
+                            onPressed: () => _showAddEditDialog(doc: doc),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () => _deleteMethod(doc.id),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -92,18 +145,28 @@ class _ManagePaymentMethodsScreenState extends State<ManagePaymentMethodsScreen>
 
   void _deleteMethod(String id) async {
     final confirm = await showDialog<bool>(
-       context: context, 
-       builder: (ctx) => AlertDialog(
-         title: const Text("Delete Payment Method"),
-         content: const Text("Are you sure? Students will no longer see these payment details."),
-         actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
-            ElevatedButton(onPressed: () => Navigator.pop(ctx, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text("Delete")),
-         ],
-       )
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Delete Payment Method"),
+        content: const Text("Are you sure? Students will no longer see these payment details."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text("Delete"),
+          ),
+        ],
+      ),
     );
     if (confirm == true) {
-       await FirebaseFirestore.instance.collection('payment_methods').doc(id).delete();
+      await FirebaseFirestore.instance.collection('payment_methods').doc(id).delete();
     }
   }
 
@@ -125,6 +188,8 @@ class _AddEditPaymentDialog extends StatefulWidget {
 }
 
 class _AddEditPaymentDialogState extends State<_AddEditPaymentDialog> {
+  final Color customRed = const Color.fromARGB(255, 198, 55, 45);
+
   final _formKey = GlobalKey<FormState>();
   final _feeTypeCtrl = TextEditingController();
   final _accNameCtrl = TextEditingController();
@@ -132,11 +197,11 @@ class _AddEditPaymentDialogState extends State<_AddEditPaymentDialog> {
   final _ifscCtrl = TextEditingController();
   final _bankCtrl = TextEditingController();
   final _upiCtrl = TextEditingController();
-  
+
   XFile? _imageFile;
   String? _existingImageUrl;
   bool _isUploading = false;
-  
+
   final List<String> _predefinedFees = ['Tuition Fee', 'Bus Fee', 'Hostel Fee', 'Exam Fee', 'Association Fee', 'Library Fee', 'Book Fee'];
 
   @override
@@ -161,41 +226,40 @@ class _AddEditPaymentDialogState extends State<_AddEditPaymentDialog> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() => _isUploading = true);
     try {
-       String? qrUrl = _existingImageUrl;
-       
-       // Upload Image if new one picked
-       if (_imageFile != null) {
-          final ref = FirebaseStorage.instance.ref().child('payment_qrs/${DateTime.now().millisecondsSinceEpoch}.jpg');
-          if (kIsWeb) {
-             await ref.putData(await _imageFile!.readAsBytes(), SettableMetadata(contentType: 'image/jpeg'));
-          } else {
-             await ref.putFile(File(_imageFile!.path));
-          }
-          qrUrl = await ref.getDownloadURL();
-       }
+      String? qrUrl = _existingImageUrl;
 
-       final feeType = _feeTypeCtrl.text.trim();
-       final docId = feeType; // Use Exact Fee Type Name as ID (e.g. "Tuition Fee")
-       
-       await FirebaseFirestore.instance.collection('payment_methods').doc(docId).set({
-          'feeType': feeType,
-          'accountName': _accNameCtrl.text.trim(),
-          'accountNumber': _accNumCtrl.text.trim(),
-          'ifsc': _ifscCtrl.text.trim(),
-          'bankName': _bankCtrl.text.trim(),
-          'upiId': _upiCtrl.text.trim(),
-          'qrCodeUrl': qrUrl,
-          'updatedAt': FieldValue.serverTimestamp(),
-       });
-       
-       if (mounted) Navigator.pop(context);
+      if (_imageFile != null) {
+        final ref = FirebaseStorage.instance.ref().child('payment_qrs/${DateTime.now().millisecondsSinceEpoch}.jpg');
+        if (kIsWeb) {
+          await ref.putData(await _imageFile!.readAsBytes(), SettableMetadata(contentType: 'image/jpeg'));
+        } else {
+          await ref.putFile(File(_imageFile!.path));
+        }
+        qrUrl = await ref.getDownloadURL();
+      }
+
+      final feeType = _feeTypeCtrl.text.trim();
+      final docId = feeType;
+
+      await FirebaseFirestore.instance.collection('payment_methods').doc(docId).set({
+        'feeType': feeType,
+        'accountName': _accNameCtrl.text.trim(),
+        'accountNumber': _accNumCtrl.text.trim(),
+        'ifsc': _ifscCtrl.text.trim(),
+        'bankName': _bankCtrl.text.trim(),
+        'upiId': _upiCtrl.text.trim(),
+        'qrCodeUrl': qrUrl,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      if (mounted) Navigator.pop(context);
     } catch (e) {
-       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     } finally {
-       if (mounted) setState(() => _isUploading = false);
+      if (mounted) setState(() => _isUploading = false);
     }
   }
 
@@ -205,12 +269,12 @@ class _AddEditPaymentDialogState extends State<_AddEditPaymentDialog> {
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-            Text(widget.doc == null ? "Add Payment Method" : "Edit Payment Method"),
-            IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+          Text(widget.doc == null ? "Add Payment Method" : "Edit Payment Method"),
+          IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
         ],
       ),
       content: SizedBox(
-        width: 500, // Improved width for web
+        width: 500,
         child: SingleChildScrollView(
           child: Form(
             key: _formKey,
@@ -218,15 +282,18 @@ class _AddEditPaymentDialogState extends State<_AddEditPaymentDialog> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Fee Type (Dropdown)
+                // Fee Type Dropdown
                 DropdownButtonFormField<String>(
-                  value: _predefinedFees.contains(_feeTypeCtrl.text) || _feeTypeCtrl.text == "All Fees (Default)" 
-                      ? _feeTypeCtrl.text 
+                  value: _predefinedFees.contains(_feeTypeCtrl.text) || _feeTypeCtrl.text == "All Fees (Default)"
+                      ? _feeTypeCtrl.text
                       : null,
-                  decoration: const InputDecoration(labelText: "Fee Name *", border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                    labelText: "Fee Name *",
+                    border: OutlineInputBorder(),
+                  ),
                   items: [
-                     const DropdownMenuItem(value: "All Fees (Default)", child: Text("All Fees (Default)")),
-                     ..._predefinedFees.map((f) => DropdownMenuItem(value: f, child: Text(f))).toList(),
+                    const DropdownMenuItem(value: "All Fees (Default)", child: Text("All Fees (Default)")),
+                    ..._predefinedFees.map((f) => DropdownMenuItem(value: f, child: Text(f))),
                   ],
                   onChanged: (val) {
                     if (val != null) setState(() => _feeTypeCtrl.text = val);
@@ -234,57 +301,109 @@ class _AddEditPaymentDialogState extends State<_AddEditPaymentDialog> {
                   validator: (v) => v == null || v.isEmpty ? "Required" : null,
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Bank Details Group
-                const Text("Bank Details", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo)),
+                const Text("Bank Details", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
                 const SizedBox(height: 8),
-                TextFormField(controller: _accNameCtrl, decoration: const InputDecoration(labelText: "Account Holder Name", border: OutlineInputBorder())),
+                TextFormField(
+                  controller: _accNameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: "Account Holder Name",
+                    border: OutlineInputBorder(),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Expanded(child: TextFormField(controller: _accNumCtrl, decoration: const InputDecoration(labelText: "Account Number", border: OutlineInputBorder()))),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _accNumCtrl,
+                        decoration: const InputDecoration(
+                          labelText: "Account Number",
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
                     const SizedBox(width: 12),
-                    Expanded(child: TextFormField(controller: _ifscCtrl, decoration: const InputDecoration(labelText: "IFSC Code", border: OutlineInputBorder()))),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _ifscCtrl,
+                        decoration: const InputDecoration(
+                          labelText: "IFSC Code",
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                TextFormField(controller: _bankCtrl, decoration: const InputDecoration(labelText: "Bank Name", border: OutlineInputBorder())),
-                
+                TextFormField(
+                  controller: _bankCtrl,
+                  decoration: const InputDecoration(
+                    labelText: "Bank Name",
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+
                 const SizedBox(height: 16),
-                const Text("UPI & QR", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo)),
+                const Text("UPI & QR", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
                 const SizedBox(height: 8),
-                TextFormField(controller: _upiCtrl, decoration: const InputDecoration(labelText: "UPI ID (VPA)", border: OutlineInputBorder(), hintText: "college@upi", prefixIcon: Icon(Icons.qr_code))),
+                TextFormField(
+                  controller: _upiCtrl,
+                  decoration: InputDecoration(
+                    labelText: "UPI ID (VPA)",
+                    border: const OutlineInputBorder(),
+                    hintText: "college@upi",
+                    prefixIcon: Icon(Icons.qr_code, color: customRed),
+                  ),
+                ),
                 const SizedBox(height: 16),
-                
+
                 // QR Code Upload Area
                 Container(
                   padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(8)),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   child: Row(
                     children: [
-                      // Preview
                       Container(
-                        width: 80, height: 80,
-                        decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(4)),
-                        child: _imageFile != null 
-                            ? (kIsWeb ? Image.network(_imageFile!.path, fit: BoxFit.cover, errorBuilder: (ctx, err, stack) => const Icon(Icons.error)) 
-                                      : Image.file(File(_imageFile!.path), fit: BoxFit.cover, errorBuilder: (ctx, err, stack) => const Icon(Icons.error)))
-                            : (_existingImageUrl != null 
-                                ? Image.network(_existingImageUrl!, fit: BoxFit.cover, errorBuilder: (ctx, err, stack) => const Icon(Icons.broken_image))
-                                : const Icon(Icons.qr_code, size: 40, color: Colors.grey)),
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: _imageFile != null
+                              ? (kIsWeb
+                                  ? Image.network(_imageFile!.path, fit: BoxFit.cover, errorBuilder: (ctx, err, stack) => const Icon(Icons.error))
+                                  : Image.file(File(_imageFile!.path), fit: BoxFit.cover, errorBuilder: (ctx, err, stack) => const Icon(Icons.error)))
+                              : (_existingImageUrl != null
+                                  ? Image.network(_existingImageUrl!, fit: BoxFit.cover, errorBuilder: (ctx, err, stack) => const Icon(Icons.broken_image))
+                                  : Icon(Icons.qr_code, size: 40, color: Colors.grey[400])),
+                        ),
                       ),
                       const SizedBox(width: 16),
-                      // Button
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(_imageFile != null ? "New Image Selected" : "Upload QR Code Image", style: const TextStyle(fontWeight: FontWeight.w500)),
+                            Text(
+                              _imageFile != null ? "New Image Selected" : "Upload QR Code Image",
+                              style: const TextStyle(fontWeight: FontWeight.w500),
+                            ),
                             const SizedBox(height: 4),
                             OutlinedButton.icon(
                               onPressed: _pickImage,
                               icon: const Icon(Icons.upload_file),
                               label: const Text("Choose File"),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: customRed,
+                                side: BorderSide(color: customRed),
+                              ),
                             ),
                           ],
                         ),
@@ -301,10 +420,18 @@ class _AddEditPaymentDialogState extends State<_AddEditPaymentDialog> {
       ),
       actionsPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       actions: [
-        OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text("Cancel", style: TextStyle(color: customRed)),
+        ),
         ElevatedButton(
-          onPressed: _isUploading ? null : _save, 
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
+          onPressed: _isUploading ? null : _save,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: customRed,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
           child: Text(_isUploading ? "Saving..." : "Save Details"),
         ),
       ],

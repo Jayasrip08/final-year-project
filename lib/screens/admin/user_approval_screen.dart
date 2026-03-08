@@ -8,13 +8,14 @@ class UserApprovalScreen extends StatelessWidget {
   final Widget? drawer;
   const UserApprovalScreen({super.key, this.drawer});
 
+  final Color customRed = const Color.fromARGB(255, 198, 55, 45);
+
   Future<void> _approveUser(BuildContext context, String uid, String name) async {
     try {
       await FirebaseFirestore.instance.collection('users').doc(uid).update({
         'approvalStatus': 'approved',
       });
       
-      // Create notification for the approved user
       await FirebaseFirestore.instance.collection('notifications').add({
         'userId': uid,
         'title': 'Account Approved',
@@ -77,9 +78,13 @@ class UserApprovalScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Pending Approvals"),
+        backgroundColor: customRed,
+        foregroundColor: Colors.white,
+        elevation: 0.5,
+        centerTitle: true,
         actions: [
           NotificationBadge(
-            child: const Icon(Icons.notifications),
+            child: const Icon(Icons.notifications, color: Colors.white),
             onTap: () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
             },
@@ -99,13 +104,14 @@ class UserApprovalScreen extends StatelessWidget {
           }
 
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.check_circle_outline, size: 80, color: Colors.green),
-                  SizedBox(height: 16),
-                  Text("All caught up! No pending approvals.", style: TextStyle(fontSize: 16, color: Colors.grey)),
+                  Icon(Icons.check_circle_outline, size: 80, color: Colors.green[300]),
+                  const SizedBox(height: 16),
+                  const Text("All caught up! No pending approvals.", 
+                    style: TextStyle(fontSize: 16, color: Colors.grey, fontWeight: FontWeight.w500)),
                 ],
               ),
             );
@@ -114,7 +120,7 @@ class UserApprovalScreen extends StatelessWidget {
           final users = snapshot.data!.docs;
 
           return ListView.builder(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(16),
             itemCount: users.length,
             itemBuilder: (context, index) {
               final user = users[index].data() as Map<String, dynamic>;
@@ -131,26 +137,92 @@ class UserApprovalScreen extends StatelessWidget {
               }
 
               return Card(
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Colors.orange[100],
-                    child: Text(role[0], style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
-                  ),
-                  title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text("$email\n$role • $details"),
-                  isThreeLine: true,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: customRed.withOpacity(0.2)),
+                ),
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.check_circle, color: Colors.green),
-                        tooltip: "Approve",
-                        onPressed: () => _approveUser(context, uid, name),
+                      // Avatar with role initial
+                      Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: customRed.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            role[0],
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                              color: customRed,
+                            ),
+                          ),
+                        ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.cancel, color: Colors.red),
-                        tooltip: "Reject",
-                        onPressed: () => _rejectUser(context, uid, name),
+                      const SizedBox(width: 16),
+                      // User details
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              email,
+                              style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                            ),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: customRed.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                role,
+                                style: TextStyle(
+                                  color: customRed,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              details,
+                              style: TextStyle(color: Colors.grey[700], fontSize: 12, height: 1.4),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Action buttons
+                      Column(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.check_circle, color: Colors.green),
+                            tooltip: "Approve",
+                            onPressed: () => _approveUser(context, uid, name),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.cancel, color: customRed),
+                            tooltip: "Reject",
+                            onPressed: () => _rejectUser(context, uid, name),
+                          ),
+                        ],
                       ),
                     ],
                   ),

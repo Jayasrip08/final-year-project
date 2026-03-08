@@ -12,23 +12,24 @@ class AdminEditStaff extends StatefulWidget {
 }
 
 class _AdminEditStaffState extends State<AdminEditStaff> {
+  final Color customRed = const Color.fromARGB(255, 198, 55, 45);
+
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameCtrl;
   late TextEditingController _emailCtrl;
-  late TextEditingController _phoneCtrl; // NEW
+  late TextEditingController _phoneCtrl;
   
   String? _selectedDept;
   String? _selectedRole;
 
   bool _isLoading = false;
 
-
   @override
   void initState() {
     super.initState();
     _nameCtrl = TextEditingController(text: widget.staffData['name']);
     _emailCtrl = TextEditingController(text: widget.staffData['email']);
-    _phoneCtrl = TextEditingController(text: widget.staffData['phone'] ?? ''); // NEW
+    _phoneCtrl = TextEditingController(text: widget.staffData['phone'] ?? '');
     _selectedDept = widget.staffData['dept'];
     _selectedRole = widget.staffData['role'];
     _fetchMasterListPhone();
@@ -67,7 +68,6 @@ class _AdminEditStaffState extends State<AdminEditStaff> {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // SYNC WITH MASTER LIST
       String? empId = widget.staffData['employeeId'];
       if (empId != null && empId.isNotEmpty) {
         await FirebaseFirestore.instance.collection('staff_master_list').doc(empId).update({
@@ -94,72 +94,159 @@ class _AdminEditStaffState extends State<AdminEditStaff> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Edit Staff Profile"), backgroundColor: Colors.indigo),
+      appBar: AppBar(
+        title: const Text("Edit Staff Profile"),
+        backgroundColor: customRed,
+        foregroundColor: Colors.white,
+        elevation: 0.5,
+        centerTitle: true,
+      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
-          child: Column(
-            children: [
-              TextFormField(
-                controller: _nameCtrl,
-                decoration: const InputDecoration(labelText: "Full Name", border: OutlineInputBorder()),
-                validator: (v) => v!.isEmpty ? "Required" : null,
-              ),
-              const SizedBox(height: 15),
-              TextFormField(
-                controller: _emailCtrl,
-                decoration: const InputDecoration(labelText: "Email", border: OutlineInputBorder()),
-                readOnly: true, // Email usually read-only as it's the auth key
-              ),
-              const SizedBox(height: 15),
-              TextFormField(
-                controller: _phoneCtrl,
-                decoration: const InputDecoration(
-                  labelText: "Phone Number", 
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.phone_outlined),
-                ),
-                keyboardType: TextInputType.phone,
-                validator: (v) => (v == null || v.isEmpty || v.length < 10) ? "Enter valid phone number" : null,
-              ),
-              const SizedBox(height: 15),
-              
-              // DEPT
-              // DEPT
-              StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance.collection('departments').orderBy('name').snapshots(),
-                builder: (context, snapshot) {
-                  List<String> depts = [];
-                  if (snapshot.hasData) {
-                    depts = snapshot.data!.docs.map((d) => d['name'] as String).toList();
-                  }
+          child: Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: customRed.withOpacity(0.2)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  // Full Name
+                  TextFormField(
+                    controller: _nameCtrl,
+                    decoration: InputDecoration(
+                      labelText: "Full Name",
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: customRed, width: 2),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      prefixIcon: Icon(Icons.person_outline, color: customRed),
+                    ),
+                    validator: (v) => v!.isEmpty ? "Required" : null,
+                  ),
+                  const SizedBox(height: 16),
+                  // Email (read-only)
+                  TextFormField(
+                    controller: _emailCtrl,
+                    readOnly: true,
+                    decoration: InputDecoration(
+                      labelText: "Email",
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: customRed, width: 2),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[100],
+                      prefixIcon: Icon(Icons.email_outlined, color: customRed),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Phone Number
+                  TextFormField(
+                    controller: _phoneCtrl,
+                    decoration: InputDecoration(
+                      labelText: "Phone Number",
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: customRed, width: 2),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      prefixIcon: Icon(Icons.phone_outlined, color: customRed),
+                    ),
+                    keyboardType: TextInputType.phone,
+                    validator: (v) => (v == null || v.isEmpty || v.length < 10) ? "Enter valid phone number" : null,
+                  ),
+                  const SizedBox(height: 16),
                   
-                  return DropdownButtonFormField<String>(
-                    value: depts.contains(_selectedDept) ? _selectedDept : null,
-                    decoration: const InputDecoration(labelText: "Department", border: OutlineInputBorder()),
-                    items: depts.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
-                    onChanged: (val) => setState(() => _selectedDept = val),
-                  );
-                }
+                  // Department Dropdown
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance.collection('departments').orderBy('name').snapshots(),
+                    builder: (context, snapshot) {
+                      List<String> depts = [];
+                      if (snapshot.hasData) {
+                        depts = snapshot.data!.docs.map((d) => d['name'] as String).toList();
+                      }
+                      
+                      return DropdownButtonFormField<String>(
+                        value: depts.contains(_selectedDept) ? _selectedDept : null,
+                        decoration: InputDecoration(
+                          labelText: "Department",
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: Colors.grey[300]!),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: Colors.grey[300]!),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: customRed, width: 2),
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                          prefixIcon: Icon(Icons.school_outlined, color: customRed),
+                        ),
+                        icon: Icon(Icons.arrow_drop_down, color: customRed),
+                        items: depts.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
+                        onChanged: (val) => setState(() => _selectedDept = val),
+                      );
+                    }
+                  ),
+                  const SizedBox(height: 24),
+                  // Update Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _updateStaff,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: customRed,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 2,
+                      ),
+                      child: _isLoading 
+                        ? const CircularProgressIndicator(color: Colors.white) 
+                        : const Text("Update Profile", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 15),
-
-              // ROLE (Read Only display or removed)
-              // User requested to remove edit for role.
-              // We can show it as read-only text or remove it. "dont show role in that" -> Removing.
-              
-              const SizedBox(height: 30),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _updateStaff,
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo),
-                  child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text("Update Profile", style: TextStyle(fontSize: 16)),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

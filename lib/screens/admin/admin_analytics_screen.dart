@@ -11,9 +11,9 @@ class AdminAnalyticsScreen extends StatefulWidget {
 }
 
 class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
-  String? _selectedBatch = "ALL"; // Default to institutional view
-  String? _selectedSemester = "ALL";
-  List<String> _availableSemesters = ["ALL"]; // Track semesters with data
+  String _selectedBatch = "ALL"; 
+  String _selectedSemester = "ALL";
+  List<String> _availableSemesters = ["ALL"]; 
   bool _isLoading = false;
 
   Map<String, double> _metrics = {
@@ -21,7 +21,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     'received': 0.0,
     'pending': 0.0,
     'outstanding': 0.0,
-    'studentCount': 0.0, // Added to track student count
+    'studentCount': 0.0,
   };
 
   @override
@@ -31,6 +31,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
   }
 
   Future<void> _calculateAnalytics() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
 
     try {
@@ -58,11 +59,9 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       if (_selectedSemester != "ALL") {
         paymentQuery = paymentQuery.where('semester', isEqualTo: _selectedSemester);
       }
-      // Note: We'll filter payments by student UID client-side if Batch is selected
       final paymentSnapshot = await paymentQuery.get();
       final payments = paymentSnapshot.docs;
 
-      // --- AGGREGATION LOGIC ---
       double totalExpected = 0.0;
       double totalReceived = 0.0;
       double totalPending = 0.0;
@@ -70,9 +69,6 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       final FeeService feeService = FeeService();
       final studentIdsInBatch = students.map((s) => s.id).toSet();
 
-      // Calculation of Expected
-      // We need to match each student with their relevant fee structures
-      // For performance, we'll group structures by Batch/Semester/Dept/Quota
       Map<String, dynamic> structuresMap = {};
       for (var f in feeStructures) {
         final data = f.data() as Map<String, dynamic>;
@@ -87,34 +83,24 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
         String quota = sData['quotaCategory'] ?? '';
         String studentType = sData['studentType'] ?? 'day_scholar';
 
-        List<String> semestersToCalc = [];
-        if (_selectedSemester != "ALL") {
-           semestersToCalc.add(_selectedSemester!);
-        } else {
-           // If ALL semesters, we sum up for all semesters that have structures defined
-           // A better way might be to only sum up to the student's current semester, 
-           // but for simple institutional analytics, we'll sum all defined for now.
-           semestersToCalc = [ '1', '2', '3', '4', '5', '6', '7', '8' ];
-        }
+        List<String> semestersToCalc = (_selectedSemester != "ALL") 
+            ? [_selectedSemester] 
+            : ['1', '2', '3', '4', '5', '6', '7', '8'];
 
         for (var sem in semestersToCalc) {
-          // Find matching structure (General to Specific)
           Map<String, dynamic>? bestMatch;
-          
           List<String> keysToTry = [
             "${batch}_${sem}_${dept}_$quota",
             "${batch}_${sem}_All_$quota",
             "${batch}_${sem}_${dept}_All",
             "${batch}_${sem}_All_All",
           ];
-
           for (var k in keysToTry) {
             if (structuresMap.containsKey(k)) {
               bestMatch = structuresMap[k];
               break;
             }
           }
-
           if (bestMatch != null) {
             totalExpected += feeService.calculateStudentFee(
               feeStructure: bestMatch,
@@ -125,17 +111,13 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
         }
       }
 
-      // Calculation of Received / Pending
       for (var p in payments) {
         final pData = p.data() as Map<String, dynamic>;
         final uid = pData['uid'];
-        
-        // Filter by batch if needed
         if (_selectedBatch != "ALL" && !studentIdsInBatch.contains(uid)) continue;
-
+        
         double amount = (pData['amountPaid'] ?? pData['amount'] ?? 0).toDouble();
         String status = pData['status'] ?? 'under_review';
-
         if (status == 'verified') {
           totalReceived += amount;
         } else if (status == 'under_review') {
@@ -143,8 +125,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
         }
       }
 
-      // 4. Update Available Semesters list based on fetched fee structures
-      // Note: Only do this when Batch changes or on initial load
+      // Update Semesters list logic
       Set<String> sems = {"ALL"};
       for (var f in feeStructures) {
         final sem = (f.data() as Map<String, dynamic>)['semester'];
@@ -155,11 +136,9 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       if (mounted) {
         setState(() {
           _availableSemesters = sortedSems;
-          // Reset selected semester if it's no longer available
           if (!_availableSemesters.contains(_selectedSemester)) {
             _selectedSemester = "ALL";
           }
-          
           _metrics = {
             'expected': totalExpected,
             'received': totalReceived,
@@ -171,45 +150,68 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
         });
       }
     } catch (e) {
-      print("Analytics Error: $e");
+      debugPrint("Analytics Error: $e");
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error calculating analytics: $e")));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    const primaryRed = Color(0xFFD32F2F); // Professional Deep Red
+
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text("Income Analytics"),
-        backgroundColor: Colors.indigo,
+        title: const Text("Income Analytics", style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: primaryRed,
         foregroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
       ),
       drawer: widget.drawer,
       body: RefreshIndicator(
+        color: primaryRed,
         onRefresh: _calculateAnalytics,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildFilters(),
-              const SizedBox(height: 24),
-              if (_isLoading)
-                const Center(child: Padding(
-                  padding: EdgeInsets.all(40),
-                  child: CircularProgressIndicator(),
-                ))
-              else ...[
-                _buildSummaryCards(),
-                const SizedBox(height: 24),
-                _buildVisualProgress(),
-                const SizedBox(height: 32),
-                _buildDetailedBreakdownHeader(),
-              ],
+              // Header Section
+              Container(
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  color: primaryRed,
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(30),
+                    bottomRight: Radius.circular(30),
+                  ),
+                ),
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
+                child: _buildFilters(primaryRed),
+              ),
+              
+              Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  children: [
+                    if (_isLoading)
+                      const Center(child: Padding(
+                        padding: EdgeInsets.all(100),
+                        child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(primaryRed)),
+                      ))
+                    else ...[
+                      _buildSummaryCards(primaryRed),
+                      const SizedBox(height: 25),
+                      _buildVisualProgress(primaryRed),
+                      const SizedBox(height: 30),
+                      _buildInsightSection(primaryRed),
+                    ],
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -217,92 +219,91 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     );
   }
 
-  Widget _buildFilters() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text("Institutional Filter", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo)),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance.collection('academic_years').snapshots(),
-                    builder: (context, snapshot) {
-                      List<String> batches = ["ALL"];
-                      if (snapshot.hasData) {
-                        batches.addAll(snapshot.data!.docs.map((d) => d['name'] as String).toList());
-                        // Sort so newest is first after ALL
-                        if (batches.length > 1) {
-                          var actualBatches = batches.sublist(1);
-                          actualBatches.sort((a,b) => b.compareTo(a));
-                          batches = ["ALL", ...actualBatches];
-                        }
-                      }
-                      return DropdownButtonFormField<String>(
-                        value: _selectedBatch,
-                        decoration: InputDecoration(
-                          labelText: "Batch",
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                        items: batches.map((b) => DropdownMenuItem(value: b, child: Text(b))).toList(),
-                        onChanged: (val) {
-                          setState(() => _selectedBatch = val);
-                          _calculateAnalytics();
-                        },
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedSemester,
-                    decoration: InputDecoration(
-                      labelText: "Semester",
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
-                    items: _availableSemesters.map((s) => DropdownMenuItem(
-                      value: s, 
-                      child: Text(s == "ALL" ? "All Semesters" : "Semester $s")
-                    )).toList(),
-                    onChanged: (val) {
-                      setState(() => _selectedSemester = val);
-                      _calculateAnalytics();
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSummaryCards() {
+  Widget _buildFilters(Color accent) {
     return Column(
       children: [
         Row(
           children: [
-            _metricCard("Total Expected", _metrics['expected']!, Colors.blue, Icons.payments),
-            const SizedBox(width: 12),
-            _metricCard("Total Received", _metrics['received']!, Colors.green, Icons.check_circle),
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance.collection('academic_years').snapshots(),
+                builder: (context, snapshot) {
+                  List<String> batches = ["ALL"];
+                  if (snapshot.hasData) {
+                    batches.addAll(snapshot.data!.docs.map((d) => d['name'] as String).toList());
+                  }
+                  return _filterDropdown(
+                    label: "Batch",
+                    value: _selectedBatch,
+                    items: batches,
+                    onChanged: (val) {
+                      setState(() => _selectedBatch = val!);
+                      _calculateAnalytics();
+                    },
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 15),
+            Expanded(
+              child: _filterDropdown(
+                label: "Semester",
+                value: _selectedSemester,
+                items: _availableSemesters,
+                onChanged: (val) {
+                  setState(() => _selectedSemester = val!);
+                  _calculateAnalytics();
+                },
+              ),
+            ),
           ],
         ),
-        const SizedBox(height: 12),
+      ],
+    );
+  }
+
+  Widget _filterDropdown({required String label, required String value, required List<String> items, required void Function(String?) onChanged}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 5),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: value,
+              isExpanded: true,
+              icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFFD32F2F)),
+              items: items.map((i) => DropdownMenuItem(value: i, child: Text(i, style: const TextStyle(fontSize: 14)))).toList(),
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSummaryCards(Color primary) {
+    return Column(
+      children: [
         Row(
           children: [
-            _metricCard("Pending Review", _metrics['pending']!, Colors.orange, Icons.history),
-            const SizedBox(width: 12),
-            _metricCard("Outstanding", _metrics['outstanding']!, Colors.red, Icons.warning_amber),
+            _metricCard("Expected", _metrics['expected']!, Colors.black87, Icons.account_balance),
+            const SizedBox(width: 15),
+            _metricCard("Received", _metrics['received']!, Colors.green, Icons.check_circle),
+          ],
+        ),
+        const SizedBox(height: 15),
+        Row(
+          children: [
+            _metricCard("Pending", _metrics['pending']!, Colors.orange[800]!, Icons.pending_actions),
+            const SizedBox(width: 15),
+            _metricCard("Outstanding", _metrics['outstanding']!, Colors.redAccent, Icons.warning),
           ],
         ),
       ],
@@ -314,21 +315,22 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.3)),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+          border: Border.all(color: Colors.grey[200]!),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: color, size: 24),
+            Icon(icon, color: color, size: 22),
             const SizedBox(height: 12),
-            Text(title, style: TextStyle(color: color.withOpacity(0.8), fontSize: 13, fontWeight: FontWeight.w500)),
+            Text(title, style: TextStyle(color: Colors.grey[600], fontSize: 13, fontWeight: FontWeight.w500)),
             const SizedBox(height: 4),
             FittedBox(
               child: Text(
                 "₹${amount.toStringAsFixed(0)}",
-                style: TextStyle(color: color, fontSize: 22, fontWeight: FontWeight.bold),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),
               ),
             ),
           ],
@@ -337,69 +339,86 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     );
   }
 
-  Widget _buildVisualProgress() {
+  Widget _buildVisualProgress(Color primary) {
     double percent = _metrics['expected'] == 0 ? 0 : (_metrics['received']! / _metrics['expected']!);
     if (percent > 1.0) percent = 1.0;
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text("Collection Progress", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            Text("${(percent * 100).toStringAsFixed(1)}%", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo)),
-          ],
-        ),
-        const SizedBox(height: 10),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: LinearProgressIndicator(
-            value: percent,
-            minHeight: 12,
-            backgroundColor: Colors.grey[200],
-            valueColor: AlwaysStoppedAnimation<Color>(percent > 0.8 ? Colors.green : Colors.indigo),
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text("Collection Target", style: TextStyle(fontWeight: FontWeight.bold)),
+              Text("${(percent * 100).toStringAsFixed(1)}%", style: TextStyle(color: primary, fontWeight: FontWeight.bold)),
+            ],
           ),
-        ),
-      ],
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: percent,
+              minHeight: 8,
+              backgroundColor: Colors.grey[100],
+              valueColor: AlwaysStoppedAnimation<Color>(primary),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildDetailedBreakdownHeader() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text("Quick Insights", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        const SizedBox(height: 12),
-        _insightRow("Active Students in Search", "${_calculateActiveStudentsInSearch()}"),
-        _insightRow("Avg. Recovery per Student", "₹${_calculateAvgRecovery()}"),
-        _insightRow("Verification Rate", "${_calculateVerificationRate()}%"),
-      ],
+  Widget _buildInsightSection(Color primary) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: primary.withOpacity(0.2), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.insights, color: primary, size: 20),
+              const SizedBox(width: 10),
+              const Text("Business Insights", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ],
+          ),
+          const Divider(height: 25),
+          _insightRow("Active Student Records", "${_metrics['studentCount']?.toInt() ?? 0}"),
+          _insightRow("Avg. Recovery / Student", "₹${_calculateAvgRecovery()}"),
+          _insightRow("Verification Success", "${_calculateVerificationRate()}%"),
+        ],
+      ),
     );
-  }
-
-  int _calculateActiveStudentsInSearch() {
-    return _metrics['studentCount']?.toInt() ?? 0;
   }
 
   String _calculateAvgRecovery() {
-    if (_metrics['studentCount'] == 0) return "₹0";
-    double avg = _metrics['received']! / _metrics['studentCount']!;
-    return "₹${avg.toStringAsFixed(0)}";
+    if (_metrics['studentCount'] == 0) return "0";
+    return (_metrics['received']! / _metrics['studentCount']!).toStringAsFixed(0);
   }
 
   String _calculateVerificationRate() {
-    if (_metrics['received']! + _metrics['pending']! == 0) return "0";
-    return ((_metrics['received']! / (_metrics['received']! + _metrics['pending']!)) * 100).toStringAsFixed(1);
+    double totalTransacted = _metrics['received']! + _metrics['pending']!;
+    if (totalTransacted == 0) return "0";
+    return ((_metrics['received']! / totalTransacted) * 100).toStringAsFixed(1);
   }
 
   Widget _insightRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Colors.grey)),
+          Text(label, style: TextStyle(color: Colors.grey[700])),
           Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
         ],
       ),

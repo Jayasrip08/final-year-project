@@ -15,6 +15,9 @@ class NotificationsScreen extends StatefulWidget {
 class _NotificationsScreenState extends State<NotificationsScreen> {
   late final String? _userId;
 
+  // CUSTOM PROJECT COLOR
+  final Color customRed = const Color.fromARGB(255, 198, 55, 45);
+
   // ── Multi-select state ──────────────────────────────────────────────────────
   bool _isSelectionMode = false;
   final Set<String> _selectedIds = {};
@@ -23,7 +26,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void initState() {
     super.initState();
     _userId = FirebaseAuth.instance.currentUser?.uid;
-    // Clear system badge count when user opens the notifications screen
     NotificationService().clearAppBadge();
   }
 
@@ -78,7 +80,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           FirebaseFirestore.instance.collection('notifications').doc(id));
     }
     await batch.commit();
-    // update launcher badge
     NotificationService().updateAppBadge();
   }
 
@@ -121,9 +122,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete All Notifications'),
+        title: const Text('Clear All Notifications'),
         content:
-            const Text('This will permanently delete all your notifications.'),
+            const Text('Are you sure you want to delete all notifications permanently?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -131,7 +132,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
               child:
-                  const Text('Delete All', style: TextStyle(color: Colors.red))),
+                  Text('Delete All', style: TextStyle(color: customRed))),
         ],
       ),
     );
@@ -152,7 +153,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               child: const Text('Cancel')),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Delete', style: TextStyle(color: Colors.red))),
+              child: Text('Delete', style: TextStyle(color: customRed))),
         ],
       ),
     );
@@ -173,11 +174,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       stream: FirebaseFirestore.instance
           .collection('notifications')
           .where('userId', isEqualTo: _userId)
-          // No orderBy here — we sort client-side so null-timestamp docs
-          // (e.g. fresh serverTimestamp() writes) are NOT silently excluded.
           .snapshots(),
       builder: (context, snapshot) {
-        // Sort client-side: newest first, null timestamps go last
         final rawDocs = snapshot.data?.docs ?? [];
         final docs = List<QueryDocumentSnapshot>.from(rawDocs)
           ..sort((a, b) {
@@ -186,54 +184,83 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             if (aTs == null && bTs == null) return 0;
             if (aTs == null) return 1;
             if (bTs == null) return -1;
-            return bTs.compareTo(aTs); // newest first
+            return bTs.compareTo(aTs);
           });
         final allSelected =
             docs.isNotEmpty && _selectedIds.length == docs.length;
 
         return Scaffold(
-          // ── AppBar ─────────────────────────────────────────────────────────
+          backgroundColor: Colors.white,
+          // Conditionally show AppBar ONLY during Selection Mode
           appBar: _isSelectionMode
               ? _buildSelectionAppBar(docs, allSelected, context)
-              : _buildNormalAppBar(context),
+              : null,
 
-          // ── Body ───────────────────────────────────────────────────────────
           body: () {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
             if (snapshot.hasError) {
               return FullScreenError(
-                message: 'Could not load notifications.\nCheck your connection and try again.',
+                message: 'Could not load notifications.',
                 onRetry: () => setState(() {}),
               );
             }
             if (docs.isEmpty) {
               return const EmptyStateWidget(
-                icon: Icons.notifications_none_rounded,
-                title: 'No notifications yet',
-                subtitle: 'You\'ll see payment updates\nand important announcements here.',
+                icon: Icons.notifications_off_outlined,
+                title: 'Clean Slate!',
+                subtitle: 'No new notifications right now.\nCheck back later for updates.',
               );
             }
 
             return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Selection bar hint ──────────────────────────────────────
+                // ── HEADER WITH ACTIONS MOVED HERE ──────────────────────────
                 if (!_isSelectionMode)
-                  Container(
-                    color: Colors.indigo[50],
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Recent Updates", 
+                            style: TextStyle(color: Colors.grey[500], fontSize: 16)),
+                          const Text("Notice Board", 
+                            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black87)),
+                        ],
+                      ),
+                      // Actions buttons moved from AppBar to Header
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.done_all_rounded, color: customRed),
+                            tooltip: 'Mark all as read',
+                            onPressed: () => _markAllAsRead(_userId!),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.delete_sweep_outlined, color: customRed),
+                            tooltip: 'Delete all',
+                            onPressed: () => _confirmDeleteAll(context, _userId!),
+                          ),
+                        ],
+                      )
+                    ],
+                  ),
+                ),
+
+                if (!_isSelectionMode)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                     child: Row(
                       children: [
-                        Icon(Icons.touch_app,
-                            size: 16, color: Colors.indigo[300]),
+                        Icon(Icons.info_outline_rounded, size: 14, color: customRed.withOpacity(0.6)),
                         const SizedBox(width: 6),
-                        Text(
-                          'Long-press to select & delete',
-                          style: TextStyle(
-                              fontSize: 12, color: Colors.indigo[400]),
-                        ),
+                        Text('Long-press to manage notifications',
+                          style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500)),
                       ],
                     ),
                   ),
@@ -241,6 +268,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 // ── List ────────────────────────────────────────────────────
                 Expanded(
                   child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     itemCount: docs.length,
                     itemBuilder: (context, index) =>
                         _buildNotificationTile(docs[index]),
@@ -254,62 +282,31 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  // ── Normal AppBar ───────────────────────────────────────────────────────────
-  AppBar _buildNormalAppBar(BuildContext context) {
-    return AppBar(
-      title: const Text('Notifications'),
-      backgroundColor: Colors.indigo,
-      foregroundColor: Colors.white,
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.done_all),
-          tooltip: 'Mark all as read',
-          onPressed: () => _markAllAsRead(_userId!),
-        ),
-        IconButton(
-          icon: const Icon(Icons.delete_sweep_outlined),
-          tooltip: 'Delete all',
-          onPressed: () => _confirmDeleteAll(context, _userId!),
-        ),
-      ],
-    );
-  }
-
-  // ── Selection AppBar ────────────────────────────────────────────────────────
+  // Selection AppBar (Only visible when items are selected)
   AppBar _buildSelectionAppBar(
       List<QueryDocumentSnapshot> docs, bool allSelected, BuildContext ctx) {
     return AppBar(
       leading: IconButton(
-        icon: const Icon(Icons.close),
+        icon: const Icon(Icons.close_rounded),
         onPressed: _exitSelectionMode,
-        tooltip: 'Cancel selection',
       ),
-      title: Text('${_selectedIds.length} selected'),
-      backgroundColor: Colors.indigo[800],
+      title: Text('${_selectedIds.length} Selected', style: const TextStyle(fontWeight: FontWeight.bold)),
+      backgroundColor: customRed,
       foregroundColor: Colors.white,
+      elevation: 4,
       actions: [
-        // Select All / Deselect All toggle
         IconButton(
-          icon: Icon(
-            allSelected ? Icons.deselect : Icons.select_all,
-            color: Colors.white,
-          ),
-          tooltip: allSelected ? 'Deselect all' : 'Select all',
+          icon: Icon(allSelected ? Icons.deselect_rounded : Icons.select_all_rounded),
           onPressed: allSelected ? _deselectAll : () => _selectAll(docs),
         ),
-        // Delete selected
         IconButton(
-          icon: const Icon(Icons.delete, color: Colors.redAccent),
-          tooltip: 'Delete selected',
-          onPressed: _selectedIds.isEmpty
-              ? null
-              : () => _confirmDeleteSelected(ctx),
+          icon: const Icon(Icons.delete_outline_rounded),
+          onPressed: _selectedIds.isEmpty ? null : () => _confirmDeleteSelected(ctx),
         ),
       ],
     );
   }
 
-  // ── Single notification tile ────────────────────────────────────────────────
   Widget _buildNotificationTile(QueryDocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     final isRead = data['read'] ?? false;
@@ -317,41 +314,30 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final timestamp = (data['timestamp'] as Timestamp?)?.toDate();
     final timeStr = timestamp != null
         ? DateFormat('MMM d, h:mm a').format(timestamp)
-        : '';
+        : 'Just now';
 
     return Dismissible(
       key: Key(doc.id),
-      direction: _isSelectionMode
-          ? DismissDirection.none // disable swipe in selection mode
-          : DismissDirection.endToStart,
+      direction: _isSelectionMode ? DismissDirection.none : DismissDirection.endToStart,
       background: Container(
-        color: Colors.red[700],
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: customRed,
+          borderRadius: BorderRadius.circular(16),
+        ),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.delete, color: Colors.white),
-            SizedBox(height: 4),
-            Text('Delete',
-                style: TextStyle(color: Colors.white, fontSize: 11)),
-          ],
-        ),
+        child: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 28),
       ),
       confirmDismiss: (_) async {
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('Delete Notification'),
-            content: const Text('Delete this notification?'),
+            content: const Text('Discard this update?'),
             actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Cancel')),
-              TextButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('Delete',
-                      style: TextStyle(color: Colors.red))),
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+              TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('Delete', style: TextStyle(color: customRed))),
             ],
           ),
         );
@@ -359,85 +345,72 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       },
       onDismissed: (_) => _deleteOne(doc.id),
       child: GestureDetector(
-        onLongPress: () {
-          if (!_isSelectionMode) _enterSelectionMode(doc.id);
-        },
+        onLongPress: () { if (!_isSelectionMode) _enterSelectionMode(doc.id); },
         onTap: () {
           if (_isSelectionMode) {
             _toggleSelection(doc.id);
-          } else {
-            // Mark as read on tap
-            if (!isRead) {
-              FirebaseFirestore.instance
-                  .collection('notifications')
-                  .doc(doc.id)
-                  .update({'read': true});
-              // badge should reflect new unread count
-              NotificationService().updateAppBadge();
-            }
+          } else if (!isRead) {
+            FirebaseFirestore.instance.collection('notifications').doc(doc.id).update({'read': true});
+            NotificationService().updateAppBadge();
           }
         },
-
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          color: isSelected
-              ? Colors.indigo.withOpacity(0.12)
-              : isRead
-                  ? Colors.white
-                  : Colors.blue[50],
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? customRed.withOpacity(0.08) : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isSelected ? customRed : (isRead ? Colors.grey[100]! : customRed.withOpacity(0.1)),
+              width: isSelected ? 2 : 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(isSelected ? 0.05 : 0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
           child: ListTile(
-            // ── Leading: checkbox (select mode) or icon (normal) ──────────
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             leading: _isSelectionMode
-                ? AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child: Icon(
-                      isSelected
-                          ? Icons.check_circle
-                          : Icons.radio_button_unchecked,
-                      key: ValueKey(isSelected),
-                      color: isSelected ? Colors.indigo : Colors.grey,
-                      size: 26,
+                ? Icon(isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                    color: isSelected ? customRed : Colors.grey)
+                : Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isRead ? Colors.grey[100] : customRed.withOpacity(0.1),
+                      shape: BoxShape.circle,
                     ),
-                  )
-                : CircleAvatar(
-                    backgroundColor:
-                        isRead ? Colors.grey[300] : Colors.indigo,
-                    child: Icon(
-                      _getIconForType(data['type']),
-                      color: isRead ? Colors.grey[600] : Colors.white,
-                    ),
+                    child: Icon(_getIconForType(data['type']),
+                        color: isRead ? Colors.grey[500] : customRed, size: 22),
                   ),
-
             title: Text(
               data['title'] ?? 'Notification',
               style: TextStyle(
-                fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
+                fontWeight: isRead ? FontWeight.w500 : FontWeight.bold,
+                fontSize: 16,
+                color: isRead ? Colors.black54 : Colors.black87,
               ),
             ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 4),
-                Text(data['body'] ?? ''),
-                const SizedBox(height: 4),
-                Text(timeStr,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                const SizedBox(height: 6),
+                Text(data['body'] ?? '', 
+                    style: TextStyle(color: isRead ? Colors.black45 : Colors.black87, height: 1.3)),
+                const SizedBox(height: 8),
+                Text(timeStr, style: TextStyle(fontSize: 11, color: Colors.grey[500], fontWeight: FontWeight.w500)),
               ],
             ),
-
-            // ── Trailing: unread dot (normal mode only) ───────────────────
-            trailing: _isSelectionMode
-                ? null
-                : !isRead
-                    ? Container(
-                        width: 10,
-                        height: 10,
-                        decoration: const BoxDecoration(
-                          color: Colors.indigo,
-                          shape: BoxShape.circle,
-                        ),
-                      )
-                    : null,
+            trailing: !_isSelectionMode && !isRead
+                ? Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(color: customRed, shape: BoxShape.circle),
+                  )
+                : null,
           ),
         ),
       ),
@@ -446,20 +419,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   IconData _getIconForType(String? type) {
     switch (type) {
-      case 'payment_reminder':
-        return Icons.payment;
-      case 'payment_verified':
-        return Icons.check_circle;
-      case 'payment_rejected':
-        return Icons.error;
-      case 'account_approved':
-        return Icons.verified_user;
-      case 'new_registration':
-        return Icons.person_add;
-      case 'new_payment':
-        return Icons.upload_file;
-      default:
-        return Icons.notifications;
+      case 'payment_reminder': return Icons.priority_high_rounded;
+      case 'payment_verified': return Icons.verified_rounded;
+      case 'payment_rejected': return Icons.report_problem_rounded;
+      case 'account_approved': return Icons.face_retouching_natural_rounded;
+      case 'new_registration': return Icons.person_add_alt_1_rounded;
+      case 'new_payment': return Icons.account_balance_wallet_rounded;
+      default: return Icons.notifications_rounded;
     }
   }
 }

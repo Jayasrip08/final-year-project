@@ -11,6 +11,8 @@ class ViewFeesScreen extends StatefulWidget {
 }
 
 class _ViewFeesScreenState extends State<ViewFeesScreen> {
+  final Color customRed = const Color.fromARGB(255, 198, 55, 45);
+
   List<String> _allBatches = [];
   String? _selectedBatch;
 
@@ -25,18 +27,18 @@ class _ViewFeesScreenState extends State<ViewFeesScreen> {
         .collection('academic_years')
         .orderBy('name', descending: true)
         .get();
-    
+
     if (mounted) {
       setState(() {
         _allBatches = snapshot.docs.map((doc) => doc.id).toList();
-        
-        // Auto-select first batch if none selected
+
         if (_selectedBatch == null && _allBatches.isNotEmpty) {
           _selectedBatch = _allBatches.first;
         }
       });
     }
   }
+
   Future<void> _deleteStructure(String docId) async {
     bool? confirm = await showDialog<bool>(
       context: context,
@@ -49,7 +51,10 @@ class _ViewFeesScreenState extends State<ViewFeesScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete'),
           ),
@@ -113,12 +118,11 @@ class _ViewFeesScreenState extends State<ViewFeesScreen> {
                   ),
                 );
               }),
-              
-              // EXAM FEE EDIT
+
               if (data['examFee'] != null) ...[
-                 const SizedBox(height: 10),
-                 const Text('Exam Fee:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.purple)),
-                 Padding(
+                const SizedBox(height: 10),
+                const Text('Exam Fee:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.purple)),
+                Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Row(
                     children: [
@@ -135,13 +139,13 @@ class _ViewFeesScreenState extends State<ViewFeesScreen> {
                             border: OutlineInputBorder(),
                           ),
                           onChanged: (value) {
-                             data['examFee'] = double.tryParse(value.replaceAll(',', '')) ?? 0.0;
+                            data['examFee'] = double.tryParse(value.replaceAll(',', '')) ?? 0.0;
                           },
                         ),
                       ),
                     ],
                   ),
-                 ),
+                ),
               ],
             ],
           ),
@@ -149,32 +153,29 @@ class _ViewFeesScreenState extends State<ViewFeesScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text('Cancel', style: TextStyle(color: customRed)),
           ),
           ElevatedButton(
             onPressed: () async {
-              // Calculate total
               double total = 0;
               components.forEach((key, value) {
                 if (value is Map) {
-                  // Bus fee - take the maximum or first available for representative total
                   total += (value.values.isNotEmpty) ? (value.values.first as num).toDouble() : 0.0;
                 } else {
                   total += (value is num) ? value.toDouble() : 0.0;
                 }
               });
-              
+
               if (data['examFee'] != null) {
                 total += (data['examFee'] as num).toDouble();
               }
 
-              // Update Firestore
               final updateData = {
                 'components': components,
                 'totalAmount': total,
                 'lastUpdated': FieldValue.serverTimestamp(),
               };
-              
+
               if (data['examFee'] != null) {
                 updateData['examFee'] = data['examFee'];
               }
@@ -191,6 +192,11 @@ class _ViewFeesScreenState extends State<ViewFeesScreen> {
                 );
               }
             },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: customRed,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
             child: const Text('Save'),
           ),
         ],
@@ -203,230 +209,293 @@ class _ViewFeesScreenState extends State<ViewFeesScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('View Fee Structures'),
-        backgroundColor: Colors.indigo,
-        actions: const [],
+        backgroundColor: customRed,
+        foregroundColor: Colors.white,
+        elevation: 0.5,
+        centerTitle: true,
       ),
       drawer: widget.drawer,
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('fee_structures')
-            .where('isActive', isEqualTo: true)
-            .where('academicYear', isEqualTo: _selectedBatch)
-            .orderBy('lastUpdated', descending: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.inbox, size: 80, color: Colors.grey[400]),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'No fee structures found',
-                    style: TextStyle(fontSize: 18, color: Colors.grey, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          final displayedDocs = snapshot.data!.docs;
-
-          if (displayedDocs.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.filter_list_off, size: 80, color: Colors.grey[400]),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'No active fee structures found for this batch',
-                    style: TextStyle(fontSize: 18, color: Colors.grey, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: displayedDocs.length,
-            itemBuilder: (context, index) {
-              final doc = displayedDocs[index];
-              final data = doc.data() as Map<String, dynamic>;
-              final components = data['components'] as Map<String, dynamic>? ?? {};
-              final total = data['totalAmount'] ?? data['amount'] ?? 0.0;
-              
-              int componentCount = components.length;
-              if (data['examFee'] != null && (data['examFee'] as num) > 0) {
-                 componentCount++;
-              }
-
-              return Card(
-                elevation: 3,
-                margin: const EdgeInsets.only(bottom: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: ExpansionTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Colors.indigo,
-                    child: Text(
-                      data['semester'] ?? '?',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  title: Text(
-                    '${data['academicYear'] ?? 'N/A'} - ${data['dept'] ?? 'All'} - ${data['quotaCategory'] ?? 'All'}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      'Total: ₹${total.toStringAsFixed(0)} • $componentCount components',
-                      style: TextStyle(color: Colors.grey[700]),
-                    ),
-                  ),
-                  childrenPadding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blue),
-                        onPressed: () => _editStructure(doc),
-                        tooltip: 'Edit',
+      body: Column(
+        children: [
+          // Batch Filter Chip Bar
+          if (_allBatches.isNotEmpty)
+            Container(
+              height: 60,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _allBatches.length,
+                itemBuilder: (context, index) {
+                  final batch = _allBatches[index];
+                  final isSelected = batch == _selectedBatch;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: FilterChip(
+                      label: Text(batch),
+                      selected: isSelected,
+                      onSelected: (val) {
+                        if (val) setState(() => _selectedBatch = batch);
+                      },
+                      backgroundColor: Colors.grey[100],
+                      selectedColor: customRed.withOpacity(0.2),
+                      checkmarkColor: customRed,
+                      labelStyle: TextStyle(
+                        color: isSelected ? customRed : Colors.black87,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () => _deleteStructure(doc.id),
-                        tooltip: 'Delete',
-                      ),
-                    ],
-                  ),
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: const BorderRadius.only(
-                          bottomLeft: Radius.circular(12),
-                          bottomRight: Radius.circular(12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        side: BorderSide(
+                          color: isSelected ? customRed : Colors.grey[300]!,
                         ),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Fee Components:',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                          ),
-                          const Divider(),
-                          if (data['deadline'] != null)
-                             Padding(
-                               padding: const EdgeInsets.only(bottom: 8),
-                               child: Row(
-                                 children: [
-                                   const Icon(Icons.calendar_month, size: 16, color: Colors.orange),
-                                   const SizedBox(width: 8),
-                                   Text(
-                                     "Deadline: ${DateFormat('dd MMM yyyy').format((data['deadline'] as Timestamp).toDate())}",
-                                     style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
-                                   ),
-                                 ],
-                               ),
-                             ),
-                          // EXAM DEADLINE DISPLAY
-                          if (data['examDeadline'] != null)
-                             Padding(
-                               padding: const EdgeInsets.only(bottom: 8),
-                               child: Row(
-                                 children: [
-                                   const Icon(Icons.assignment_late, size: 16, color: Colors.purple),
-                                   const SizedBox(width: 8),
-                                   Text(
-                                     "Exam Deadline: ${DateFormat('dd MMM yyyy').format((data['examDeadline'] as Timestamp).toDate())}",
-                                     style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple),
-                                   ),
-                                 ],
-                               ),
-                             ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('fee_structures')
+                  .where('isActive', isEqualTo: true)
+                  .where('academicYear', isEqualTo: _selectedBatch)
+                  .orderBy('lastUpdated', descending: true)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-                          ...components.entries.map((entry) {
-                            // ... existing map
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    entry.key,
-                                    style: const TextStyle(fontSize: 14),
-                                  ),
-                                  Text(
-                                    '₹${entry.value}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                      color: Colors.indigo,
-                                    ),
-                                  ),
-                                ],
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.inbox, size: 80, color: Colors.grey[400]),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'No fee structures found',
+                          style: TextStyle(fontSize: 18, color: Colors.grey, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final displayedDocs = snapshot.data!.docs;
+
+                if (displayedDocs.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.filter_list_off, size: 80, color: Colors.grey[400]),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'No active fee structures found for this batch',
+                          style: TextStyle(fontSize: 18, color: Colors.grey, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: displayedDocs.length,
+                  itemBuilder: (context, index) {
+                    final doc = displayedDocs[index];
+                    final data = doc.data() as Map<String, dynamic>;
+                    final components = data['components'] as Map<String, dynamic>? ?? {};
+                    final total = data['totalAmount'] ?? data['amount'] ?? 0.0;
+
+                    int componentCount = components.length;
+                    if (data['examFee'] != null && (data['examFee'] as num) > 0) {
+                      componentCount++;
+                    }
+
+                    return Card(
+                      elevation: 2,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(color: customRed.withOpacity(0.2)),
+                      ),
+                      child: Theme(
+                        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                        child: ExpansionTile(
+                          leading: CircleAvatar(
+                            backgroundColor: customRed,
+                            child: Text(
+                              data['semester'] ?? '?',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          title: Text(
+                            '${data['academicYear'] ?? 'N/A'} - ${data['dept'] ?? 'All'} - ${data['quotaCategory'] ?? 'All'}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              'Total: ₹${total.toStringAsFixed(0)} • $componentCount components',
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                          ),
+                          childrenPadding: const EdgeInsets.all(16),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: Icon(Icons.edit, color: customRed),
+                                onPressed: () => _editStructure(doc),
+                                tooltip: 'Edit',
                               ),
-                            );
-                          }),
-                          
-                          // EXAM FEE ROW
-                          if (data['examFee'] != null && (data['examFee'] as num) > 0)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.red),
+                                onPressed: () => _deleteStructure(doc.id),
+                                tooltip: 'Delete',
+                              ),
+                            ],
+                          ),
+                          children: [
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[50],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Text(
-                                    "Exam Fee",
-                                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.purple),
+                                    'Fee Components:',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                   ),
-                                  Text(
-                                    '₹${data['examFee']}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                      color: Colors.purple,
+                                  const SizedBox(height: 8),
+                                  if (data['deadline'] != null)
+                                    Container(
+                                      margin: const EdgeInsets.only(bottom: 12),
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.orange[50],
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: Colors.orange[200]!),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.calendar_month, size: 16, color: Colors.orange[800]),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            "Deadline: ${DateFormat('dd MMM yyyy').format((data['deadline'] as Timestamp).toDate())}",
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.orange[800],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
+                                  if (data['examDeadline'] != null)
+                                    Container(
+                                      margin: const EdgeInsets.only(bottom: 12),
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: Colors.purple[50],
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: Colors.purple[200]!),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.assignment_late, size: 16, color: Colors.purple[800]),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            "Exam Deadline: ${DateFormat('dd MMM yyyy').format((data['examDeadline'] as Timestamp).toDate())}",
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.purple[800],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  const Divider(),
+                                  ...components.entries.map((entry) {
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 6),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            entry.key,
+                                            style: const TextStyle(fontSize: 14),
+                                          ),
+                                          Text(
+                                            '₹${entry.value}',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                              color: customRed,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }),
+                                  if (data['examFee'] != null && (data['examFee'] as num) > 0)
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 6),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          const Text(
+                                            "Exam Fee",
+                                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.purple),
+                                          ),
+                                          Text(
+                                            '₹${data['examFee']}',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                              color: Colors.purple,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  const Divider(),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text(
+                                        'Total Amount:',
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                      ),
+                                      Text(
+                                        '₹${total.toStringAsFixed(0)}',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                          color: customRed,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
                             ),
-                          const Divider(),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'Total Amount:',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                              ),
-                              Text(
-                                '₹${total.toStringAsFixed(0)}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: Colors.green,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

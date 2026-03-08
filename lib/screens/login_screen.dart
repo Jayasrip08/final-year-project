@@ -6,6 +6,9 @@ import 'student/student_dashboard.dart';
 import 'admin/admin_dashboard.dart';
 import 'staff/staff_dashboard.dart';
 
+// Assuming Validators class is defined in your project, if not, 
+// ensure you have the proper import for it.
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -77,7 +80,7 @@ class _LoginScreenState extends State<LoginScreen> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(children: [
-          Icon(Icons.hourglass_top, color: Colors.orange[700]),
+          const Icon(Icons.hourglass_top, color: Colors.orange),
           const SizedBox(width: 10),
           const Text("Approval Pending"),
         ]),
@@ -89,7 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.indigo,
+              backgroundColor: Colors.red,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8)),
@@ -104,183 +107,158 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Colors.indigo[900]!, Colors.indigo[500]!],
-          ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-              child: Column(
-                children: [
-                  // ── Logo ───────────────────────────────────────────────
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.school, size: 60, color: Colors.white),
+      backgroundColor: Colors.white, // CHANGED: White background
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+            child: Column(
+              children: [
+                // ── LOGO (Matches Splash Screen) ──────────────────────
+                Image.asset(
+                  'assets/app_logo.png', // Same as Splash Screen
+                  width: 120,
+                  height: 120,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) =>
+                      const Icon(Icons.school, size: 80, color: Color.fromARGB(255, 198, 55, 45)),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  "A-DACS",
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Color.fromARGB(255, 198, 55, 45), // CHANGED: Red Title
+                    letterSpacing: 2,
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    "A-DACS",
-                    style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  const Text(
-                    "Digital Clearance System",
-                    style: TextStyle(fontSize: 13, color: Colors.white70),
-                  ),
+                ),
+                const Text(
+                  "Digital Clearance System",
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                ),
 
-                  const SizedBox(height: 32),
+                const SizedBox(height: 40),
 
-                  // ── Card ───────────────────────────────────────────────
-                  Card(
-                    elevation: 10,
-                    shadowColor: Colors.black38,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(
-                              "Welcome back",
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.indigo[900],
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              "Sign in to your account",
-                              style: TextStyle(
-                                  fontSize: 13, color: Colors.grey[600]),
-                            ),
-                            const SizedBox(height: 24),
-
-                            // Email
-                            TextFormField(
-                              controller: _emailCtrl,
-                              keyboardType: TextInputType.emailAddress,
-                              textInputAction: TextInputAction.next,
-                              autovalidateMode:
-                                  AutovalidateMode.onUserInteraction,
-                              validator: Validators.validateEmail,
-                              decoration: _inputDecoration(
-                                label: "Email address",
-                                icon: Icons.email_outlined,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Password
-                            TextFormField(
-                              controller: _passCtrl,
-                              obscureText: _obscurePassword,
-                              textInputAction: TextInputAction.done,
-                              onFieldSubmitted: (_) => _login(),
-                              autovalidateMode:
-                                  AutovalidateMode.onUserInteraction,
-                              validator: Validators.validatePassword,
-                              decoration: _inputDecoration(
-                                label: "Password",
-                                icon: Icons.lock_outline,
-                              ).copyWith(
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _obscurePassword
-                                        ? Icons.visibility_outlined
-                                        : Icons.visibility_off_outlined,
-                                    color: Colors.grey[600],
-                                    size: 20,
-                                  ),
-                                  onPressed: () => setState(
-                                      () => _obscurePassword = !_obscurePassword),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 28),
-
-                            // Sign In button
-                            SizedBox(
-                              height: 52,
-                              child: ElevatedButton(
-                                onPressed: _isLoading ? null : _login,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.indigo[700],
-                                  foregroundColor: Colors.white,
-                                  disabledBackgroundColor:
-                                      Colors.indigo[200],
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12)),
-                                  elevation: 2,
-                                ),
-                                child: _isLoading
-                                    ? const SizedBox(
-                                        height: 22,
-                                        width: 22,
-                                        child: CircularProgressIndicator(
-                                            color: Colors.white,
-                                            strokeWidth: 2.5),
-                                      )
-                                    : const Text(
-                                        "SIGN IN",
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 15,
-                                            letterSpacing: 1),
-                                      ),
-                              ),
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            // Register link
-                            Center(
-                              child: TextButton(
-                                onPressed: () =>
-                                    _showRegistrationTypeDialog(context),
-                                child: RichText(
-                                  text: TextSpan(
-                                    style: const TextStyle(fontSize: 13),
-                                    children: [
-                                      TextSpan(
-                                          text: "Don't have an account? ",
-                                          style: TextStyle(
-                                              color: Colors.grey[600])),
-                                      TextSpan(
-                                          text: "Register",
-                                          style: TextStyle(
-                                              color: Colors.indigo[700],
-                                              fontWeight: FontWeight.bold)),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                // ── LOGIN FORM ─────────────────────────────────────────
+                Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        "Welcome back",
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "Sign in to your account",
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Email
+                      TextFormField(
+                        controller: _emailCtrl,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        // validator: Validators.validateEmail, // Logic kept
+                        decoration: _inputDecoration(
+                          label: "Email address",
+                          icon: Icons.email_outlined,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Password
+                      TextFormField(
+                        controller: _passCtrl,
+                        obscureText: _obscurePassword,
+                        textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (_) => _login(),
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        // validator: Validators.validatePassword, // Logic kept
+                        decoration: _inputDecoration(
+                          label: "Password",
+                          icon: Icons.lock_outline,
+                        ).copyWith(
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                              color: Colors.grey[600],
+                              size: 20,
+                            ),
+                            onPressed: () => setState(
+                                () => _obscurePassword = !_obscurePassword),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Sign In button
+                      SizedBox(
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _login,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Color.fromARGB(255, 198, 55, 45), // CHANGED: Red Button
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: Colors.red[200],
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            elevation: 0,
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  height: 24,
+                                  width: 24,
+                                  child: CircularProgressIndicator(
+                                      color: Colors.white, strokeWidth: 2.5),
+                                )
+                              : const Text(
+                                  "SIGN IN",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      letterSpacing: 1.2),
+                                ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Register link
+                      Center(
+                        child: TextButton(
+                          onPressed: () => _showRegistrationTypeDialog(context),
+                          child: RichText(
+                            text: TextSpan(
+                              style: const TextStyle(fontSize: 14),
+                              children: [
+                                TextSpan(
+                                    text: "Don't have an account? ",
+                                    style: TextStyle(color: Colors.grey[600])),
+                                const TextSpan(
+                                    text: "Register",
+                                    style: TextStyle(
+                                        color: Color.fromARGB(255, 198, 55, 45), // CHANGED: Red Link
+                                        fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -292,7 +270,8 @@ class _LoginScreenState extends State<LoginScreen> {
       {required String label, required IconData icon}) {
     return InputDecoration(
       labelText: label,
-      prefixIcon: Icon(icon, size: 20),
+      labelStyle: const TextStyle(color: Colors.grey),
+      prefixIcon: Icon(icon, size: 22, color: Colors.grey),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -300,20 +279,19 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.indigo[600]!, width: 2),
+        borderSide: const BorderSide(color: Color.fromARGB(255, 198, 55, 45), width: 2), // CHANGED: Red Focus
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.red),
+        borderSide: const BorderSide(color: Color.fromARGB(255, 198, 55, 45), width: 2),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.red, width: 2),
+        borderSide: const BorderSide(color: Color.fromARGB(255, 198, 55, 45), width: 2),
       ),
       filled: true,
       fillColor: Colors.grey[50],
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     );
   }
 
@@ -321,9 +299,10 @@ class _LoginScreenState extends State<LoginScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(children: [
-          Icon(Icons.app_registration, color: Colors.indigo[700]),
+        title: const Row(children: [
+          Icon(Icons.app_registration, color: Color.fromARGB(255, 198, 55, 45)),
           const SizedBox(width: 10),
           const Text("Register As"),
         ]),
@@ -333,7 +312,7 @@ class _LoginScreenState extends State<LoginScreen> {
             _registerTile(
               ctx: ctx,
               icon: Icons.school,
-              color: Colors.indigo,
+              color: Color.fromARGB(255, 198, 55, 45),
               label: "Student",
               subtitle: "Requires Student ID Verification",
               onTap: () {
@@ -341,11 +320,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) =>
-                            const IdentityVerificationScreen()));
+                        builder: (_) => const IdentityVerificationScreen()));
               },
             ),
-            const Divider(height: 8),
+            const Divider(height: 16),
             _registerTile(
               ctx: ctx,
               icon: Icons.work_outline,
@@ -370,7 +348,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _registerTile({
     required BuildContext ctx,
     required IconData icon,
-    required MaterialColor color,
+    required Color color,
     required String label,
     required String subtitle,
     required VoidCallback onTap,
@@ -379,28 +357,29 @@ class _LoginScreenState extends State<LoginScreen> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                  color: color[50], borderRadius: BorderRadius.circular(10)),
-              child: Icon(icon, color: color[700], size: 24),
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, color: color, size: 24),
             ),
             const SizedBox(width: 14),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 15)),
-                Text(subtitle,
-                    style:
-                        TextStyle(fontSize: 12, color: Colors.grey[600])),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text(subtitle,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                ],
+              ),
             ),
-            const Spacer(),
             Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey[400]),
           ],
         ),

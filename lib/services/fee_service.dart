@@ -141,7 +141,9 @@ class FeeService {
       if (value is Map) {
         // Bus fee logic (summing routes is standard here for total display, 
         // though student chooses one in detail screen)
-        value.values.forEach((amt) => total += (amt as num).toDouble());
+        for (var amt in value.values) {
+          total += (amt as num).toDouble();
+        }
       } else {
         total += (value as num).toDouble();
       }

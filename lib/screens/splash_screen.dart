@@ -52,49 +52,41 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.indigo,
+      backgroundColor: Colors.white, // Pure white background
       body: Center(
         child: FadeTransition(
           opacity: _animation,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Logo Placeholder using Icon if no asset
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 10,
-                      spreadRadius: 5,
-                    )
-                  ]
-                ),
-                child: const Icon(
-                  Icons.school_rounded,
-                  size: 80,
-                  color: Colors.indigo,
-                ),
+              // DISPLAY LOGO IMAGE HERE
+              Image.asset(
+                'assets/app_logo.png', // Ensure this path matches your file exactly
+                width: 180,        // Adjust width as needed
+                height: 180,       // Adjust height as needed
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  // Fallback if the image fails to load
+                  return const Icon(Icons.school_rounded, size: 100, color: Colors.indigo);
+                },
               ),
-              const SizedBox(height: 24),
-              const Text(
+              const SizedBox(height: 30),
+              Text(
                 "A-DACS",
                 style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
+                  color: Color.fromARGB(255, 198, 55, 45), // SET: App name color to red
+                  fontSize: 32,
                   fontWeight: FontWeight.bold,
-                  letterSpacing: 1.5,
+                  letterSpacing: 2.0,
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               const Text(
                 "Streamlined Clearance System",
                 style: TextStyle(
-                  color: Colors.white70,
+                  color: Colors.black54,
                   fontSize: 16,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
             ],
