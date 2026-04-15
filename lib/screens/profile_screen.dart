@@ -165,7 +165,25 @@ class ProfileScreen extends StatelessWidget {
                             _profileTile(
                               Icons.account_balance_wallet_rounded, 
                               "Wallet Balance", 
-                              "₹${((data['walletBalance'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(0)}",
+                              FutureBuilder<DocumentSnapshot>(
+                                future: FirebaseFirestore.instance.collection('wallets').doc(user.uid).get(),
+                                builder: (context, walletSnap) {
+                                  double balance = 0.0;
+                                  if (walletSnap.hasData && walletSnap.data!.exists) {
+                                    balance = (walletSnap.data!.data() as Map<String, dynamic>?)?['balance']?.toDouble() ?? 0.0;
+                                  } else {
+                                    balance = (data['walletBalance'] as num?)?.toDouble() ?? 0.0;
+                                  }
+                                  return Text(
+                                    "₹${balance.toStringAsFixed(0)}",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                      color: customRed,
+                                    ),
+                                  );
+                                }
+                              ),
                               isPrimary: true,
                             ),
                           ] else ...[
@@ -240,7 +258,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _profileTile(IconData icon, String label, String value, {bool isPrimary = false}) {
+  Widget _profileTile(IconData icon, String label, dynamic value, {bool isPrimary = false}) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -263,8 +281,8 @@ class ProfileScreen extends StatelessWidget {
               children: [
                 Text(label, style: TextStyle(color: Colors.grey[500], fontSize: 11, fontWeight: FontWeight.w500)),
                 const SizedBox(height: 2),
-                Text(
-                  value,
+                value is Widget ? value : Text(
+                  value.toString(),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,

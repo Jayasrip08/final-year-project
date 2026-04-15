@@ -79,7 +79,7 @@ class _PaymentListTabState extends State<PaymentListTab> with AutomaticKeepAlive
         ),
         Expanded(
           child: StreamBuilder<QuerySnapshot>(
-            stream: query.orderBy('submittedAt', descending: true).snapshots(),
+            stream: query.snapshots(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 return Center(
@@ -117,7 +117,17 @@ class _PaymentListTabState extends State<PaymentListTab> with AutomaticKeepAlive
                 );
               }
 
-              final filteredDocs = snapshot.data!.docs.where((doc) {
+              // LOCAL SORT: Sort by submittedAt descending in memory
+              final allDocs = snapshot.data!.docs.toList();
+              allDocs.sort((a, b) {
+                final aTime = (a.data() as Map<String, dynamic>)['submittedAt'] as Timestamp?;
+                final bTime = (b.data() as Map<String, dynamic>)['submittedAt'] as Timestamp?;
+                if (aTime == null) return 1;
+                if (bTime == null) return -1;
+                return bTime.compareTo(aTime);
+              });
+
+              final filteredDocs = allDocs.where((doc) {
                 if (_searchQuery.isEmpty) return true;
                 final data = doc.data() as Map<String, dynamic>;
                 final regNo = (data['studentRegNo'] ?? data['uid'] ?? '').toString().toLowerCase();

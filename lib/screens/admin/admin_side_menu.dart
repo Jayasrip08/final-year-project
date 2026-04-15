@@ -48,6 +48,7 @@ class _AdminSideMenuState extends State<AdminSideMenu> {
           _buildNavItem(context, 12, "Income Analytics", Icons.analytics, customRed),
           _buildNavItem(context, 13, "No-Due Requests", Icons.verified_user, customRed),
           _buildNavItem(context, 1, "User Approvals", Icons.how_to_reg, customRed),
+          _buildNavItem(context, 14, "Support Tickets", Icons.confirmation_number_rounded, customRed),
           
           const Divider(),
           const Padding(

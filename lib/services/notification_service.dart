@@ -303,21 +303,57 @@ class NotificationService {
   static void showSuccess(String message) {
     messengerKey.currentState?.hideCurrentSnackBar();
     messengerKey.currentState?.showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.green[700], behavior: SnackBarBehavior.floating),
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_outline, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message, style: const TextStyle(fontWeight: FontWeight.w500))),
+          ],
+        ),
+        backgroundColor: const Color(0xFF2E7D32), // Refined Emerald Green
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(12),
+      ),
     );
   }
 
   static void showError(String message) {
     messengerKey.currentState?.hideCurrentSnackBar();
     messengerKey.currentState?.showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red[700], behavior: SnackBarBehavior.floating),
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message, style: const TextStyle(fontWeight: FontWeight.w500))),
+          ],
+        ),
+        backgroundColor: const Color(0xFFC62828), // Professional Deep Red
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(12),
+      ),
     );
   }
 
   static void showInfo(String message) {
     messengerKey.currentState?.hideCurrentSnackBar();
     messengerKey.currentState?.showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.blue[700], behavior: SnackBarBehavior.floating),
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.info_outline, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message, style: const TextStyle(fontWeight: FontWeight.w500))),
+          ],
+        ),
+        backgroundColor: const Color(0xFF1565C0), // Premium Blue
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(12),
+      ),
     );
   }
 

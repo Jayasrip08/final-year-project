@@ -19,6 +19,7 @@ import 'admin_staff_database.dart';
 import 'manage_payment_methods.dart'; 
 import 'admin_analytics_screen.dart'; 
 import 'admin_nodue_requests.dart'; 
+import '../support_inbox_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -64,7 +65,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       return Scaffold(
         backgroundColor: backgroundWhite,
         appBar: AppBar(
-          title: const Text("Admin Console", style: TextStyle(fontWeight: FontWeight.bold)),
+          title: const Text("Admin Console", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
           backgroundColor: customRed,
           foregroundColor: Colors.white,
           elevation: 0,
@@ -109,7 +110,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     child: Row(
                       children: [
                         _buildQuickAction(Icons.settings_suggest, "Fee Setup", 3),
-                        _buildQuickAction(Icons.verified_user, "Approvals", 1),
+
                         _buildQuickAction(Icons.analytics, "Analytics", 12),
                         _buildQuickAction(Icons.payment, "Methods", 11),
                         _buildQuickAction(Icons.calendar_month, "Acd. Year", 5),
@@ -183,6 +184,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       case 11: content = ManagePaymentMethodsScreen(drawer: sideMenu); break;
       case 12: content = AdminAnalyticsScreen(drawer: sideMenu); break;
       case 13: content = AdminNoDueRequestsScreen(drawer: sideMenu); break;
+      case 14: content = SupportInboxScreen(drawer: sideMenu); break;
       default: content = const Center(child: Text("Page not found"));
     }
 

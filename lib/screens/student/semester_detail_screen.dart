@@ -682,13 +682,16 @@ class _SemesterDetailScreenState extends State<SemesterDetailScreen> {
     return ElevatedButton(
       onPressed: () => _uploadBill(title, amount),
       style: ElevatedButton.styleFrom(
-        backgroundColor: isPartial ? Colors.blue : customRed,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        foregroundColor: customRed,
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(color: customRed, width: 1.5),
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 16),
       ),
-      child: Text(isPartial ? "BALANCE" : "PAY", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+      child: Text(isPartial ? "BALANCE" : "PAY OR UPLOAD", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
     );
   }
 

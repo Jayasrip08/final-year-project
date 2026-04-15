@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'staff_student_detail.dart';
 import '../profile_screen.dart';
+import '../support_inbox_screen.dart';
 import '../../services/pdf_service.dart';
 
 class StaffDashboard extends StatefulWidget {
@@ -342,7 +343,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
           : null,
         title: Text(
           _isSelectionMode ? "${_selectedIds.length} Selected" : (_staffDept != null ? "$_staffDept Staff" : "Staff Console"),
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.white),
         ),
         backgroundColor: _isSelectionMode ? Colors.black : customRed,
         foregroundColor: Colors.white,
@@ -368,8 +369,9 @@ class _StaffDashboardState extends State<StaffDashboard> {
               ),
             ],
           ),
-          // Index 1 & 2: Placeholders (Actions handled by Navigation logic)
-          const SizedBox.shrink(),
+          // Index 1: TICKETS
+          const SupportInboxScreen(),
+          // Index 2: PROFILE
           const ProfileScreen(),
         ],
       ),
@@ -386,14 +388,18 @@ class _StaffDashboardState extends State<StaffDashboard> {
           type: BottomNavigationBarType.fixed,
           backgroundColor: Colors.white,
           onTap: (index) {
-            if (index == 1) {
-              _downloadReport(); // Instant Action
+            if (index == 2) {
+              _downloadReport(); // Instant Action (Now at index 2)
             } else {
-              setState(() => _currentIndex = index);
+              // Map nav index to IndexedStack index
+              int stackIndex = index;
+              if (index == 3) stackIndex = 2; // Profile is now 3 in nav, 2 in stack
+              setState(() => _currentIndex = stackIndex);
             }
           },
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded), label: 'Dashboard'),
+            BottomNavigationBarItem(icon: Icon(Icons.confirmation_number_rounded), label: 'Tickets'),
             BottomNavigationBarItem(icon: Icon(Icons.cloud_download_rounded), label: 'Download'),
             BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),
           ],
@@ -426,6 +432,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
       padding: const EdgeInsets.all(16.0),
       child: Column(
         children: [
+
           Container(
             decoration: BoxDecoration(
               color: Colors.white,

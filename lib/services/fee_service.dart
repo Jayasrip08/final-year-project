@@ -278,13 +278,15 @@ class FeeService {
 
       // 2. Initial Reads (All reads must be before writes!)
       DocumentReference? userRef = studentId != null ? _db.collection('users').doc(studentId) : null;
+      DocumentSnapshot? userSnapshot = userRef != null ? await transaction.get(userRef) : null;
+      DocumentReference? walletRef = studentId != null ? _db.collection('wallets').doc(studentId) : null;
+      DocumentSnapshot? walletSnapshot = walletRef != null ? await transaction.get(walletRef) : null;
       
       double surplus = 0.0;
       double walletUsed = (paymentData['walletUsedAmount'] as num?)?.toDouble() ?? 0.0;
       double pocketAmount = (paymentData['amountPaid'] as num?)?.toDouble() ?? 0.0;
+      
       // Use fullFeeAmount (original total fee) for surplus calculation.
-      // amountExpected is now the net cash expected (fee - wallet), so we read
-      // fullFeeAmount stored in the enrichment; fall back gracefully for old records.
       double fullFee = (paymentData['fullFeeAmount'] as num?)?.toDouble()
           ?? ((paymentData['amountExpected'] as num?)?.toDouble() ?? 0.0) + walletUsed;
       
@@ -311,7 +313,6 @@ class FeeService {
            totalSubmittedValue += (pocketAmount + walletUsed);
         }
 
-        // Compare against the full original fee (not the net cash amount after wallet)
         if (totalSubmittedValue > fullFee) {
            double previousTotal = totalSubmittedValue - (pocketAmount + walletUsed);
            if (previousTotal >= fullFee) {
@@ -322,7 +323,6 @@ class FeeService {
         }
       }
 
-
       // 3. All Updates (Writes must follow all reads)
       transaction.update(paymentRef, {
         'status': isApproved ? 'verified' : 'rejected',
@@ -331,14 +331,57 @@ class FeeService {
         if (isApproved) 'surplusCredited': surplus,
       });
 
-      if (isApproved && userRef != null) {
+      if (isApproved && userRef != null && walletRef != null) {
+        // Update user's aggregate paid fee
         transaction.update(userRef, {
           'paidFee': FieldValue.increment(pocketAmount + walletUsed),
-          if (walletUsed > 0) 'walletBalance': FieldValue.increment(-walletUsed),
-          if (surplus > 0) 'walletBalance': FieldValue.increment(surplus),
           'lastPaymentDate': FieldValue.serverTimestamp(),
           'lastPaymentId': paymentId,
         });
+
+        // Handle Wallet Balance Update (Dedicated Collection)
+        if (walletUsed > 0 || surplus > 0) {
+          if (walletSnapshot != null && walletSnapshot.exists) {
+            transaction.update(walletRef, {
+              'balance': FieldValue.increment(surplus - walletUsed),
+              'lastUpdated': FieldValue.serverTimestamp(),
+            });
+          } else {
+            // Migration Logic: Check for legacy balance in users doc
+            double legacyBalance = 0.0;
+            if (userSnapshot != null && userSnapshot.exists) {
+              legacyBalance = (userSnapshot.data() as Map?)?['walletBalance']?.toDouble() ?? 0.0;
+            }
+
+            transaction.set(walletRef, {
+              'uid': studentId,
+              'balance': legacyBalance + surplus - walletUsed,
+              'lastUpdated': FieldValue.serverTimestamp(),
+            });
+          }
+
+          // Log Wallet Transactions
+          if (walletUsed > 0) {
+            transaction.set(_db.collection('wallet_transactions').doc(), {
+              'uid': studentId,
+              'amount': -walletUsed,
+              'type': 'debit',
+              'reason': 'fee_payment',
+              'paymentId': paymentId,
+              'timestamp': FieldValue.serverTimestamp(),
+            });
+          }
+          if (surplus > 0) {
+            transaction.set(_db.collection('wallet_transactions').doc(), {
+              'uid': studentId,
+              'amount': surplus,
+              'type': 'credit',
+              'reason': 'overpayment_surplus',
+              'paymentId': paymentId,
+              'timestamp': FieldValue.serverTimestamp(),
+            });
+          }
+        }
       }
 
       // 5. Create Notification (Note: Transaction writes must be at the end)
@@ -381,6 +424,7 @@ class FeeService {
       // If it was verified, we need to undo balance changes
       if (status == 'verified' && studentId != null) {
         DocumentReference userRef = _db.collection('users').doc(studentId);
+        DocumentReference walletRef = _db.collection('wallets').doc(studentId);
         
         final double walletUsed = (paymentData['walletUsedAmount'] as num?)?.toDouble() ?? 0.0;
         final double pocketAmount = (paymentData['amountPaid'] as num?)?.toDouble() ?? 0.0;
@@ -388,9 +432,24 @@ class FeeService {
 
         transaction.update(userRef, {
           'paidFee': FieldValue.increment(-(pocketAmount + walletUsed)),
-          if (walletUsed > 0) 'walletBalance': FieldValue.increment(walletUsed),
-          if (surplus > 0) 'walletBalance': FieldValue.increment(-surplus),
         });
+
+        if (walletUsed > 0 || surplus > 0) {
+          transaction.update(walletRef, {
+            'balance': FieldValue.increment(walletUsed - surplus),
+            'lastUpdated': FieldValue.serverTimestamp(),
+          });
+
+          // Log Reversal Transactions
+          transaction.set(_db.collection('wallet_transactions').doc(), {
+            'uid': studentId,
+            'amount': walletUsed - surplus,
+            'type': (walletUsed - surplus) > 0 ? 'credit' : 'debit',
+            'reason': 'payment_reversal',
+            'paymentId': paymentId,
+            'timestamp': FieldValue.serverTimestamp(),
+          });
+        }
       }
 
       // Reset payment status

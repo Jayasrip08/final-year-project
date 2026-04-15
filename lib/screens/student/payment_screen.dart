@@ -86,13 +86,27 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Future<void> _fetchWalletBalance() async {
     try {
       final user = FirebaseAuth.instance.currentUser!;
-      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      if (doc.exists) {
+      
+      // Try new dedicated collection first
+      final walletDoc = await FirebaseFirestore.instance.collection('wallets').doc(user.uid).get();
+      
+      if (walletDoc.exists) {
         if (mounted) {
           setState(() {
-            _walletBalance = (doc.data()?['walletBalance'] as num?)?.toDouble() ?? 0.0;
+            _walletBalance = (walletDoc.data()?['balance'] as num?)?.toDouble() ?? 0.0;
             _isWalletFetching = false;
           });
+        }
+      } else {
+        // Fallback to legacy field in users collection
+        final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (userDoc.exists) {
+          if (mounted) {
+            setState(() {
+              _walletBalance = (userDoc.data()?['walletBalance'] as num?)?.toDouble() ?? 0.0;
+              _isWalletFetching = false;
+            });
+          }
         }
       }
     } catch (e) {
@@ -977,10 +991,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Pay & Verify"),
+        title: Text("Pay or Upload", style: TextStyle(color: customRed, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
-        foregroundColor: customRed,
         elevation: 0.5,
+        iconTheme: IconThemeData(color: customRed),
       ),
       body: _isLoadingDetails
           ? Center(child: CircularProgressIndicator(color: customRed))
@@ -1005,10 +1019,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 if (_currentStep > 0) setState(() => _currentStep--);
               },
               controlsBuilder: (BuildContext context, ControlsDetails details) {
-                String continueLabel = "Continue";
-                if (_currentStep == 0) continueLabel = "Pay or Upload Receipt";
-                if (_currentStep == 1) continueLabel = "Verify Details";
-                if (_currentStep == 2) continueLabel = "Submit Receipt for Verification";
+                String continueLabel = "Proceed";
+                if (_currentStep == 0) continueLabel = "Proceed to Upload";
+                if (_currentStep == 1) continueLabel = "Proceed to Verify";
+                if (_currentStep == 2) continueLabel = "Confirm and Submit";
 
                 return Padding(
                   padding: const EdgeInsets.only(top: 20.0),
@@ -1136,10 +1150,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.05),
+                            color: Colors.teal.withOpacity(0.05),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                                color: Colors.green.withOpacity(0.1)),
+                                color: Colors.teal.withOpacity(0.1)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1151,7 +1165,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                   Row(
                                     children: [
                                       Icon(Icons.account_balance_wallet,
-                                          color: Colors.green[700]),
+                                          color: Colors.teal[700]),
                                       const SizedBox(width: 8),
                                       const Text("Wallet Balance",
                                           style: TextStyle(
@@ -1161,7 +1175,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                   Text("₹${_walletBalance.toStringAsFixed(0)}",
                                       style: TextStyle(
                                           fontWeight: FontWeight.bold,
-                                          color: Colors.green[700])),
+                                          color: Colors.teal[700])),
                                 ],
                               ),
                               const SizedBox(height: 12),
@@ -1294,10 +1308,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             ]),
                           ),
                         Card(
-                          elevation: 2,
-                          color: customRed.withOpacity(0.05),
+                          elevation: 1,
+                          color: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: Colors.grey[200]!),
                           ),
                           child: Padding(
                             padding: const EdgeInsets.all(16.0),

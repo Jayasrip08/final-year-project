@@ -141,7 +141,7 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
   Future<void> _loadExistingStructure() async {
     if (_batch.isEmpty) return;
     
-    setState(() => _isLoading = true);
+    if (mounted) setState(() => _isLoading = true);
     
     String sanitizedDept = _dept.replaceAll(" ", "_");
     String sanitizedQuota = _quota.replaceAll(" ", "_");
@@ -160,37 +160,41 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
         final examFee = data['examFee'] as num?;
         final examDeadline = data['examDeadline'] as Timestamp?;
 
-        setState(() {
-          _isEditing = true;
-          _controllers.clear();
-          _busFeePlaces.clear();
-          _deadline = deadline?.toDate();
-          _examDeadline = examDeadline?.toDate();
-          _examFeeCtrl.text = examFee?.toString() ?? '';
+        if (mounted) {
+          setState(() {
+            _isEditing = true;
+            _controllers.clear();
+            _busFeePlaces.clear();
+            _deadline = deadline?.toDate();
+            _examDeadline = examDeadline?.toDate();
+            _examFeeCtrl.text = examFee?.toString() ?? '';
 
-          components.forEach((key, value) {
-            if (key == 'Bus Fee' && value is Map) {
-              value.forEach((place, amt) {
-                _busFeePlaces[place] = TextEditingController(text: amt.toString());
-              });
-            } else if (value is num) {
-              _controllers[key] = TextEditingController(text: value.toString());
-            }
+            components.forEach((key, value) {
+              if (key == 'Bus Fee' && value is Map) {
+                value.forEach((place, amt) {
+                  _busFeePlaces[place] = TextEditingController(text: amt.toString());
+                });
+              } else if (value is num) {
+                _controllers[key] = TextEditingController(text: value.toString());
+              }
+            });
+            _isLoading = false;
           });
-          _isLoading = false;
-        });
+        }
       } else {
-        setState(() {
-          _isEditing = false;
-          _resetControllers();
-          _deadline = null;
-          _examDeadline = null;
-          _examFeeCtrl.clear();
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _isEditing = false;
+            _resetControllers();
+            _deadline = null;
+            _examDeadline = null;
+            _examFeeCtrl.clear();
+            _isLoading = false;
+          });
+        }
       }
     } catch (e) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
       debugPrint('Error loading existing structure: $e');
     }
   }
@@ -231,7 +235,7 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
   }
 
   void _saveFeeStructure() async {
-    setState(() => _isLoading = true);
+    if (mounted) setState(() => _isLoading = true);
 
     Map<String, dynamic> components = {};
     
@@ -255,7 +259,7 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
 
     if (components.isEmpty) {
       NotificationService.showError('Please add at least one fee component');
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
 
@@ -286,13 +290,13 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
         examDeadline: _examDeadline,
       );
 
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
       
       if (mounted) {
         NotificationService.showSuccess('Fee Structure Saved Successfully!');
       }
     } catch (e) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
       if (mounted) {
         NotificationService.showError('Error saving: $e');
       }
@@ -321,12 +325,13 @@ class _FeeSetupScreenState extends State<FeeSetupScreen> {
               alignment: Alignment.centerRight,
               child: Chip(
                 label: Text(_isEditing ? "Editing Saved Fees" : "New Fee Structure", style: const TextStyle(fontWeight: FontWeight.bold)),
-                backgroundColor: _isEditing ? Colors.amber[100] : Colors.green[100],
+                backgroundColor: _isEditing ? const Color(0xFFFFF7E6) : const Color(0xFFE6FFFA),
                 avatar: Icon(
-                  _isEditing ? Icons.edit : Icons.add,
+                  _isEditing ? Icons.edit_rounded : Icons.add_circle_outline_rounded,
                   size: 18,
-                  color: _isEditing ? Colors.orange : Colors.green,
+                  color: _isEditing ? Colors.orange[800] : const Color(0xFF0D9488),
                 ),
+                side: BorderSide(color: _isEditing ? Colors.orange.withOpacity(0.3) : const Color(0xFF0D9488).withOpacity(0.3)),
               ),
             ),
             const SizedBox(height: 12),

@@ -63,6 +63,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
+        toolbarHeight: 70,
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: false,
@@ -121,10 +122,14 @@ class _StudentDashboardState extends State<StudentDashboard> {
             _buildWalletCard(),
             
             const SizedBox(height: 32),
-            // ── QUICK ACTIONS ─────────────────────────────────────
+            // ── STATIC QUICK ACTIONS (ALWAYS VISIBLE) ──────────────
             const Text("Quick Actions", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            _buildQuickActionGrid(),
+            _buildStaticQuickActions(),
+
+            const SizedBox(height: 32),
+            // ── DYNAMIC CLEARED HIGHLIGHTS ────────────────────────
+            _buildDynamicClearedHighlights(),
 
             const SizedBox(height: 32),
             // ── SEMESTER LIST ─────────────────────────────────────
@@ -180,63 +185,121 @@ class _StudentDashboardState extends State<StudentDashboard> {
     );
   }
 
-  Widget _buildQuickActionGrid() {
+  Widget _buildStaticQuickActions() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         _quickActionItem(
           Icons.history_edu_rounded, 
           "Clearance",
+          color: Colors.blue,
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ClearanceScreen(userData: _userData!),
-              ),
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (_) => ClearanceScreen(userData: _userData!)));
           },
         ),
         _quickActionItem(
           Icons.account_balance_rounded, 
           "Fees",
+          color: Colors.green,
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => FeesLedgerScreen(userData: _userData!),
-              ),
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (_) => FeesLedgerScreen(userData: _userData!)));
           },
         ),
         _quickActionItem(
           Icons.file_present_rounded, 
           "Documents",
+          color: Colors.orange,
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => DocumentsScreen(userData: _userData!),
-              ),
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (_) => DocumentsScreen(userData: _userData!)));
           },
         ),
         _quickActionItem(
           Icons.help_outline_rounded, 
           "Support",
+          color: Colors.purple,
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => SupportScreen(userData: _userData!),
-              ),
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (_) => SupportScreen(userData: _userData!)));
           },
         ),
       ],
     );
   }
 
-  Widget _quickActionItem(IconData icon, String label, {required VoidCallback onTap}) {
+  Widget _buildDynamicClearedHighlights() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('no_due_certificates')
+          .where('uid', isEqualTo: user.uid)
+          .where('status', isEqualTo: 'issued')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const SizedBox.shrink(); 
+        }
+
+        final certificates = snapshot.data!.docs;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Achievement Highlights", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 100,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: certificates.length,
+                itemBuilder: (context, index) {
+                  final data = certificates[index].data() as Map<String, dynamic>;
+                  final semNum = data['semester']?.toString() ?? '?';
+                  return _clearedSemesterItem(semNum);
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _clearedSemesterItem(String sem) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => SemesterDetailScreen(userData: _userData!, semester: sem)),
+        );
+      },
+      child: Container(
+        width: 140,
+        margin: const EdgeInsets.only(right: 16),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.green.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.green.withOpacity(0.2)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
+              child: const Icon(Icons.verified_rounded, color: Colors.white, size: 20),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Semester $sem",
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green),
+            ),
+            const Text("CLEARED", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1, color: Colors.green)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _quickActionItem(IconData icon, String label, {required Color color, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -245,16 +308,16 @@ class _StudentDashboardState extends State<StudentDashboard> {
             height: 60,
             width: 60,
             decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
+              color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.blue.withOpacity(0.3)),
+              border: Border.all(color: color.withOpacity(0.3)),
             ),
-            child: Icon(icon, color: Colors.blue, size: 28),
+            child: Icon(icon, color: color, size: 28),
           ),
           const SizedBox(height: 8),
           Text(
             label,
-            style: TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.w500),
+            style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -263,23 +326,33 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
   Widget _buildWalletCard() {
     return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+      stream: FirebaseFirestore.instance.collection('wallets').doc(user.uid).snapshots(),
       builder: (context, snapshot) {
-        final data = snapshot.data?.data() as Map<String, dynamic>?;
-        final double balance = (data?['walletBalance'] as num?)?.toDouble() ?? 0.0;
+        double balance = 0.0;
+        if (snapshot.hasData && snapshot.data!.exists) {
+          final data = snapshot.data?.data() as Map<String, dynamic>?;
+          balance = (data?['balance'] as num?)?.toDouble() ?? 0.0;
+        } else {
+          // Fallback to legacy balance in users collection until first update
+          balance = (_userData?['walletBalance'] as num?)?.toDouble() ?? 0.0;
+        }
 
         return Container(
           width: double.infinity,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [customRed, customRed.withOpacity(0.8)],
+              colors: [Colors.teal.shade700, Colors.teal.shade400],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
-              BoxShadow(color: customRed.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10)),
+              BoxShadow(
+                color: Colors.teal.withOpacity(0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
             ],
           ),
           child: Column(

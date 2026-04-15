@@ -194,7 +194,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           // Conditionally show AppBar ONLY during Selection Mode
           appBar: _isSelectionMode
               ? _buildSelectionAppBar(docs, allSelected, context)
-              : null,
+              : AppBar(
+                  backgroundColor: Colors.white,
+                  elevation: 0,
+                  leading: Navigator.of(context).canPop()
+                      ? IconButton(
+                          icon: Icon(Icons.arrow_back, color: customRed),
+                          onPressed: () => Navigator.pop(context),
+                        )
+                      : null,
+                  actions: [
+                    IconButton(
+                      icon: Icon(Icons.done_all_rounded, color: customRed),
+                      tooltip: 'Mark all as read',
+                      onPressed: () => _markAllAsRead(_userId!),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.delete_sweep_outlined, color: customRed),
+                      tooltip: 'Delete all',
+                      onPressed: () => _confirmDeleteAll(context, _userId!),
+                    ),
+                  ],
+                ),
 
           body: () {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -217,37 +238,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── HEADER WITH ACTIONS MOVED HERE ──────────────────────────
+                // ── HEADER ──────────────────────────
                 if (!_isSelectionMode)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 10, 20, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("Recent Updates", 
-                            style: TextStyle(color: Colors.grey[500], fontSize: 16)),
-                          const Text("Notice Board", 
-                            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black87)),
-                        ],
-                      ),
-                      // Actions buttons moved from AppBar to Header
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: Icon(Icons.done_all_rounded, color: customRed),
-                            tooltip: 'Mark all as read',
-                            onPressed: () => _markAllAsRead(_userId!),
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.delete_sweep_outlined, color: customRed),
-                            tooltip: 'Delete all',
-                            onPressed: () => _confirmDeleteAll(context, _userId!),
-                          ),
-                        ],
-                      )
+                      Text("Recent Updates", 
+                        style: TextStyle(color: Colors.grey, fontSize: 16)),
+                      Text("Notice Board", 
+                        style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black87)),
                     ],
                   ),
                 ),
@@ -389,9 +390,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             title: Text(
               data['title'] ?? 'Notification',
               style: TextStyle(
-                fontWeight: isRead ? FontWeight.w500 : FontWeight.bold,
+                fontWeight: isRead ? FontWeight.normal : FontWeight.bold, // Unread is bold
                 fontSize: 16,
-                color: isRead ? Colors.black54 : Colors.black87,
+                color: isRead ? Colors.black45 : Colors.black87, // Read is dim black
               ),
             ),
             subtitle: Column(
@@ -399,7 +400,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               children: [
                 const SizedBox(height: 6),
                 Text(data['body'] ?? '', 
-                    style: TextStyle(color: isRead ? Colors.black45 : Colors.black87, height: 1.3)),
+                    style: TextStyle(
+                      fontWeight: isRead ? FontWeight.normal : FontWeight.bold, // Message also bold if unread
+                      color: isRead ? Colors.black38 : Colors.black87, // Dimmer black for read body
+                      height: 1.3,
+                    )),
                 const SizedBox(height: 8),
                 Text(timeStr, style: TextStyle(fontSize: 11, color: Colors.grey[500], fontWeight: FontWeight.w500)),
               ],

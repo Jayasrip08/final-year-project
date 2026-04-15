@@ -258,11 +258,34 @@ class _ViewFeesScreenState extends State<ViewFeesScreen> {
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('fee_structures')
-                  .where('isActive', isEqualTo: true)
                   .where('academicYear', isEqualTo: _selectedBatch)
-                  .orderBy('lastUpdated', descending: true)
                   .snapshots(),
               builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error_outline, color: Colors.red, size: 60),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Database Error',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            snapshot.error.toString(),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.grey[600]),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
@@ -272,25 +295,7 @@ class _ViewFeesScreenState extends State<ViewFeesScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.inbox, size: 80, color: Colors.grey[400]),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'No fee structures found',
-                          style: TextStyle(fontSize: 18, color: Colors.grey, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                final displayedDocs = snapshot.data!.docs;
-
-                if (displayedDocs.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.filter_list_off, size: 80, color: Colors.grey[400]),
+                        Icon(Icons.inventory_2_outlined, size: 70, color: Colors.grey[300]),
                         const SizedBox(height: 16),
                         const Text(
                           'No active fee structures found for this batch',
@@ -299,6 +304,24 @@ class _ViewFeesScreenState extends State<ViewFeesScreen> {
                       ],
                     ),
                   );
+                }
+
+                // LOCAL FILTERING & SORTING: Filter by isActive and sort by lastUpdated
+                final displayedDocs = snapshot.data!.docs.where((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  return data['isActive'] == true;
+                }).toList();
+                
+                displayedDocs.sort((a, b) {
+                  final aTime = (a.data() as Map<String, dynamic>)['lastUpdated'] as Timestamp?;
+                  final bTime = (b.data() as Map<String, dynamic>)['lastUpdated'] as Timestamp?;
+                  if (aTime == null) return 1;
+                  if (bTime == null) return -1;
+                  return bTime.compareTo(aTime);
+                });
+
+                if (displayedDocs.isEmpty) {
+                  return const Center(child: Text("No active fee structures found."));
                 }
 
                 return ListView.builder(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/notification_service.dart';
+import '../../services/email_service.dart';
 import '../../widgets/notification_badge.dart';
 import '../notifications_screen.dart';
 
@@ -10,7 +11,7 @@ class UserApprovalScreen extends StatelessWidget {
 
   final Color customRed = const Color.fromARGB(255, 198, 55, 45);
 
-  Future<void> _approveUser(BuildContext context, String uid, String name) async {
+  Future<void> _approveUser(BuildContext context, String uid, String name, String email, String role) async {
     try {
       await FirebaseFirestore.instance.collection('users').doc(uid).update({
         'approvalStatus': 'approved',
@@ -26,8 +27,15 @@ class UserApprovalScreen extends StatelessWidget {
         'received': false,
       });
       
+      // NEW: Send professional approval email
+      await EmailService().sendApprovalEmail(
+        studentEmail: email, 
+        studentName: name, 
+        role: role.toLowerCase()
+      );
+      
       if (context.mounted) {
-        NotificationService.showSuccess("$name has been approved!");
+        NotificationService.showSuccess("$name has been approved and notified!");
       }
     } catch (e) {
       if (context.mounted) {
@@ -215,7 +223,7 @@ class UserApprovalScreen extends StatelessWidget {
                           IconButton(
                             icon: const Icon(Icons.check_circle, color: Colors.green),
                             tooltip: "Approve",
-                            onPressed: () => _approveUser(context, uid, name),
+                            onPressed: () => _approveUser(context, uid, name, email, role),
                           ),
                           IconButton(
                             icon: Icon(Icons.cancel, color: customRed),

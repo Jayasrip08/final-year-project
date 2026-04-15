@@ -92,7 +92,6 @@ exports.sendPaymentReminders = onSchedule({
   schedule: "0 10 * * *", // Every day at 10:00 AM
   timeZone: "Asia/Kolkata",
   region: "asia-south1",
-  secrets: ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER"],
 }, async (event) => {
   logger.info("Starting payment reminder job");
 
@@ -157,7 +156,6 @@ exports.sendPaymentReminders = onSchedule({
 exports.onFeeStructureChanged = onDocumentCreated({
   document: "fee_structures/{docId}",
   region: "asia-south1",
-  secrets: ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER"],
 }, async (event) => {
   const feeData = event.data.data();
   const db = admin.firestore();
@@ -207,7 +205,7 @@ exports.onFeeStructureChanged = onDocumentCreated({
  */
 exports.triggerManualOverdueSMS = onCall({
   region: "asia-south1",
-  secrets: ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER"],
+  cors: true,
 }, async (request) => {
   // 1. Verify Authentication & Admin Role
   if (!request.auth) {
@@ -343,7 +341,6 @@ async function sendRemindersForFeeStructure(
 exports.onPaymentStatusChangeV2 = onDocumentUpdated({
   document: "payments/{paymentId}",
   region: "asia-south1",
-  secrets: ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER"],
 }, async (event) => {
   const before = event.data.before.data();
   const after = event.data.after.data();
@@ -553,7 +550,6 @@ exports.onPaymentCreated = onDocumentCreated({
 exports.onNewRegistration = onDocumentCreated({
   document: "users/{userId}",
   region: "asia-south1",
-  secrets: ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER"],
 }, async (event) => {
   const userData = event.data.data();
   const db = admin.firestore();

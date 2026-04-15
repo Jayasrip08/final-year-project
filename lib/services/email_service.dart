@@ -4,6 +4,55 @@ import 'sms_service.dart';
 class EmailService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  // Corporate Red Color from APEC Branding
+  static const String _primaryRed = '#C6372D';
+  
+
+  /// Professional HTML Template Wrapper
+  String _wrapWithProfessionalTemplate({
+    required String title,
+    required String contentHtml,
+  }) {
+    return '''
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f6f9; }
+    .wrapper { width: 100%; padding: 40px 0; }
+    .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+    .header { background: $_primaryRed; color: white; padding: 30px; text-align: center; }
+    .content { padding: 40px; }
+    .content h1 { font-size: 22px; color: #2d3436; margin-top: 0; }
+    .content p { font-size: 15px; color: #636e72; }
+    .highlight-box { background: #fffcfc; border-left: 4px solid $_primaryRed; padding: 20px; margin: 25px 0; border-radius: 0 8px 8px 0; }
+    .amount { font-size: 24px; color: $_primaryRed; font-weight: bold; }
+    .footer { padding: 30px; background: #fafafa; border-top: 1px solid #eeeeee; color: #95a5a6; font-size: 11px; text-align: center; }
+    .footer strong { color: #7f8c8d; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="container">
+      <div class="header">
+        <h2 style="margin:0; letter-spacing: 1px;">A-DACS</h2>
+      </div>
+      <div class="content">
+        $contentHtml
+      </div>
+      <div class="footer">
+        <p><strong>Adhiparasakthi Engineering College (APEC)</strong></p>
+        <p>Admin Block, Ground Floor | Melmaruvathur, Tamil Nadu 603319</p>
+        <p>Contact: +91 94440 12345 | accounting@apec.edu</p>
+        <div style="margin-top:20px; color: #bdc3c7;">&copy; ${DateTime.now().year} Institutional Digital Clearance System</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+''';
+  }
+
   /// Send overdue payment reminder to a student using Firebase Trigger Email extension
   Future<bool> sendOverdueReminder({
     required String studentEmail,
@@ -13,57 +62,33 @@ class EmailService {
     required DateTime deadline,
   }) async {
     try {
-      final emailBody = '''
-Dear $studentName,
+      final contentHtml = '''
+        <h1>Fee Payment Reminder</h1>
+        <p>Dear <strong>$studentName</strong>,</p>
+        <p>This is a formal reminder regarding your outstanding dues for the current academic session.</p>
+        <div class="highlight-box">
+          <p style="margin:0; font-size:12px; text-transform:uppercase; letter-spacing:1px; color:#b2bec3;">Outstanding Balance</p>
+          <div class="amount">₹${dueAmount.toStringAsFixed(0)}</div>
+          <p style="margin:5px 0 0 0; color:#e17055;"><strong>Due Date: ${_formatDate(deadline)}</strong></p>
+        </div>
+        <p>Please note that your payment for <strong>Semester $semester</strong> is currently overdue. We request you to upload the payment proof through the A-DACS mobile portal or visit the accounts office immediately to avoid late fee penalties.</p>
+        <p>If you have already made the payment, please ensure the transfer details are updated in the app for verification.</p>
+        <p>Sincerely,<br><strong>Institutional Accounts Department</strong></p>
+      ''';
 
-This is a reminder that your Semester $semester fee payment was due on ${_formatDate(deadline)}.
+      final htmlBody = _wrapWithProfessionalTemplate(
+        title: 'Payment Reminder - Semester $semester', 
+        contentHtml: contentHtml
+      );
 
-Outstanding Amount: ₹${dueAmount.toStringAsFixed(0)}
-
-Please submit your payment proof at your earliest convenience through the A-DACS portal.
-
-Thank you,
-A-DACS Administration
-''';
-
-      final htmlBody = '''
-<!DOCTYPE html>
-<html>
-<head>
-  <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: #3f51b5; color: white; padding: 20px; text-align: center; }
-    .content { padding: 20px; background: #f9f9f9; }
-    .amount { font-size: 24px; color: #f44336; font-weight: bold; }
-    .footer { padding: 20px; text-align: center; color: #666; font-size: 12px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h2>Payment Reminder</h2>
-    </div>
-    <div class="content">
-      <p>Dear <strong>$studentName</strong>,</p>
-      <p>This is a reminder that your <strong>Semester $semester</strong> fee payment was due on <strong>${_formatDate(deadline)}</strong>.</p>
-      <p>Outstanding Amount: <span class="amount">₹${dueAmount.toStringAsFixed(0)}</span></p>
-      <p>Please submit your payment proof at your earliest convenience through the A-DACS portal.</p>
-    </div>
-    <div class="footer">
-      <p>Thank you,<br>A-DACS Administration</p>
-    </div>
-  </div>
-</body>
-</html>
-''';
+      final plainText = 'Dear $studentName, your Semester $semester fee of ₹${dueAmount.toStringAsFixed(0)} was due on ${_formatDate(deadline)}. Please submit proof in the A-DACS app. Thank you, A-DACS Admin.';
 
       // Add document to 'mail' collection - Firebase Trigger Email extension will process it
       await _db.collection('mail').add({
         'to': [studentEmail],
         'message': {
-          'subject': 'Payment Reminder - Semester $semester Fee Due',
-          'text': emailBody,
+          'subject': 'Fee Payment Reminder - Semester $semester',
+          'text': plainText,
           'html': htmlBody,
         },
         'metadata': {
@@ -77,6 +102,54 @@ A-DACS Administration
       return true;
     } catch (e) {
       print('Error sending email to $studentEmail: $e');
+      return false;
+    }
+  }
+
+  /// Send account approval email
+  Future<bool> sendApprovalEmail({
+    required String studentEmail,
+    required String studentName,
+    required String role,
+  }) async {
+    try {
+      final contentHtml = '''
+        <h1>Account Approved</h1>
+        <p>Dear <strong>$studentName</strong>,</p>
+        <p>We are pleased to inform you that your registration for the <strong>Institutional Digital Clearance System (A-DACS)</strong> has been verified and approved by the administration.</p>
+        <div class="highlight-box">
+          <p style="margin:0;"><strong>You can now log in to the application to:</strong></p>
+          <ul style="margin:10px 0; color:#636e72;">
+            <li>View fee structures and payment history</li>
+            <li>Submit semester clearance requests</li>
+            <li>Access institutional support channels</li>
+          </ul>
+        </div>
+        <p>Please use your registered email and password to access your dashboard. We recommend keeping your profile details updated for seamless communication.</p>
+        <p>Welcome aboard!<br><strong>A-DACS Administration</strong></p>
+      ''';
+
+      final htmlBody = _wrapWithProfessionalTemplate(
+        title: 'Account Approval Notification', 
+        contentHtml: contentHtml
+      );
+
+      await _db.collection('mail').add({
+        'to': [studentEmail],
+        'message': {
+          'subject': 'A-DACS Account Approved - Welcome',
+          'text': 'Dear $studentName, your A-DACS account has been approved. You can now log in to access your dashboard. Welcome!',
+          'html': htmlBody,
+        },
+        'metadata': {
+          'studentName': studentName,
+          'type': 'approval',
+          'sentAt': FieldValue.serverTimestamp(),
+        },
+      });
+      return true;
+    } catch (e) {
+      print('Error sending approval email: $e');
       return false;
     }
   }
@@ -124,7 +197,8 @@ A-DACS Administration
 
         for (var studentDoc in students.docs) {
           final studentData = studentDoc.data();
-          final studentQuota = (studentData['quotaCategory'] ?? '').toString().toLowerCase();
+          // The student document uses 'quota', but the fee structure uses 'quotaCategory'
+          final studentQuota = (studentData['quota'] ?? studentData['quotaCategory'] ?? '').toString().toLowerCase();
           
           // Skip if quota doesn't match (unless it's "All")
           if (quota != 'All' && studentQuota != quota.toLowerCase()) {

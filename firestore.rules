@@ -53,10 +53,8 @@ service cloud.firestore {
       allow list: if request.query.limit <= 2;
 
       // Users can create their own document during registration
-      allow create: if isSignedIn() && request.auth.uid == userId;
-
-      // Allow master admin creation
-      allow create: if true;
+      // Admin can also create user documents
+      allow create: if isSignedIn() && (request.auth.uid == userId || isAdmin());
 
       // Users can update their own document (except protected fields)
       allow update: if isSignedIn() && request.auth.uid == userId
@@ -128,6 +126,8 @@ service cloud.firestore {
       // All signed-in users can read (both direct get and list/query)
       allow get: if isSignedIn();
       allow list: if isSignedIn();
+      
+      // Only Admin can create/update/delete fee structures
       allow write: if isAdmin();
     }
 
@@ -195,8 +195,11 @@ service cloud.firestore {
                     && request.resource.data.diff(resource.data).affectedKeys()
                         .hasOnly(['read', 'readAt', 'received', 'receivedAt']);
 
-      // Anyone (app + Cloud Functions) can create notifications
-      allow create: if true;
+      // Authenticated users and Cloud Functions can create notifications
+      allow create: if isSignedIn() || true; // Keeping 'true' for background triggers if needed, but isSignedIn() is preferred.
+      // NOTE: Background triggers (functions) use admin SDK and bypass rules. 
+      // So we can change this to isSignedIn() for client-side safety.
+      allow create: if isSignedIn();
 
       // Admin can delete
       allow delete: if isAdmin();
@@ -260,13 +263,42 @@ service cloud.firestore {
     }
 
     // ============================================
+    // MAIL COLLECTION (Firebase Trigger Email)
+    // ============================================
+    match /mail/{mailId} {
+      // Authenticated users can create mail documents to send emails
+      allow create: if isSignedIn();
+      // Admin can read all mail logs
+      allow read: if isAdmin();
+    }
+
+    // ============================================
+    // WALLETS COLLECTION
+    // ============================================
+    match /wallets/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      // Writing is restricted to Admins (verification/reverts)
+      allow write: if isAdmin();
+    }
+
+    // ============================================
+    // WALLET TRANSACTIONS COLLECTION
+    // ============================================
+    match /wallet_transactions/{txId} {
+      allow read: if isSignedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    // ============================================
     // SUPPORT TICKETS COLLECTION
     // ============================================
     match /support_tickets/{ticketId} {
+      // Students can read their own tickets and create new ones
+      allow read, delete: if isSignedIn() && (resource.data.uid == request.auth.uid || isAdmin());
       allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
-      allow read, update: if isSignedIn() && resource.data.uid == request.auth.uid;
-      allow read: if isStaff() && isAssignedStaff(resource.data.uid);
-      allow write: if isStaff();
+      // Staff can read and update tickets within their department
+      allow read, update: if isStaff() && resource.data.dept == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.dept;
+      // Admin has full control
       allow read, write: if isAdmin();
     }
   }

@@ -270,7 +270,9 @@ class _OverduePaymentsScreenState extends State<OverduePaymentsScreen> {
         var students = studentSnapshot.data!.docs;
         if (quota != 'All') {
           students = students.where((s) {
-            final q = (s['quotaCategory'] ?? '').toString().toLowerCase();
+            final data = s.data() as Map<String, dynamic>;
+            // The student document uses 'quota', but the fee structure uses 'quotaCategory'
+            final q = (data['quota'] ?? data['quotaCategory'] ?? '').toString().toLowerCase();
             return q == quota.toLowerCase();
           }).toList();
         }
@@ -280,17 +282,26 @@ class _OverduePaymentsScreenState extends State<OverduePaymentsScreen> {
         return Column(
           children: students.map((studentDoc) {
             final studentData = studentDoc.data() as Map<String, dynamic>;
+            
+            // Optimized: Fetching payments as a single stream for that student & semester
             return StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('payments')
                   .where('studentId', isEqualTo: studentDoc.id)
                   .where('semester', isEqualTo: semester)
-                  .where('status', isEqualTo: 'verified')
                   .snapshots(),
               builder: (context, paymentSnapshot) {
+                if (paymentSnapshot.hasError) return const SizedBox.shrink();
+                
                 double paidAmount = 0.0;
                 if (paymentSnapshot.hasData) {
-                   for (var doc in paymentSnapshot.data!.docs) paidAmount += (doc['amount'] as num).toDouble();
+                  // LOCAL FILTERING: Filter by status: 'verified' here to reduce composite index needs
+                  for (var doc in paymentSnapshot.data!.docs) {
+                    final pData = doc.data() as Map<String, dynamic>;
+                    if (pData['status'] == 'verified') {
+                      paidAmount += (pData['amount'] ?? 0).toDouble();
+                    }
+                  }
                 }
 
                 if (paidAmount >= totalFeeAmount) return const SizedBox.shrink();

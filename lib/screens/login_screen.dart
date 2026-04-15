@@ -123,7 +123,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   errorBuilder: (context, error, stackTrace) =>
                       const Icon(Icons.school, size: 80, color: Color.fromARGB(255, 198, 55, 45)),
                 ),
-                const SizedBox(height: 16),
                 const Text(
                   "A-DACS",
                   style: TextStyle(

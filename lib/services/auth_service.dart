@@ -1,6 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -13,42 +12,68 @@ class AuthService {
     const String masterEmpId = "420422205001";
     
     try {
-      // Check if user exists in Firestore
-      final query = await _db.collection('users').where('email', isEqualTo: masterEmail).get();
-      
-      if (query.docs.isEmpty) {
-        // Create Authentication User
-        try {
-           await _auth.createUserWithEmailAndPassword(email: masterEmail, password: masterPass);
-        } catch (e) {
-           // Auth might already exist even if firestore doc doesn't
-           print("Auth user might already exist: $e");
+      // Step 1: Attempt to sign in to check if auth user exists
+      try {
+        await _auth.signInWithEmailAndPassword(email: masterEmail, password: masterPass);
+        print("Master Admin signed in successfully (exists).");
+        
+        // Check if Firestore document exists, if not create it
+        final user = _auth.currentUser;
+        if (user != null) {
+          final doc = await _db.collection('users').doc(user.uid).get();
+          if (!doc.exists) {
+            await _db.collection('users').doc(user.uid).set({
+              'uid': user.uid,
+              'name': 'A-DACS ADMIN',
+              'email': masterEmail,
+              'role': 'admin',
+              'employeeId': masterEmpId,
+              'dept': 'Administration', 
+              'approvalStatus': 'approved',
+              'isRegistered': true,
+              'createdAt': FieldValue.serverTimestamp(),
+            });
+            print("Master Admin Firestore document created.");
+          }
         }
         
-        // Create/Update Firestore Doc using sign-in to get UID
-        try {
-           UserCredential cred = await _auth.signInWithEmailAndPassword(email: masterEmail, password: masterPass);
-           String uid = cred.user!.uid;
-           
-           await _db.collection('users').doc(uid).set({
-             'uid': uid,
-             'name': 'A-DACS ADMIN',
-             'email': masterEmail,
-             'role': 'admin',
-             'employeeId': masterEmpId,
-             'dept': 'Administration', 
-             'approvalStatus': 'approved',
-             'isRegistered': true,
-             'createdAt': FieldValue.serverTimestamp(),
-           });
-           
-           await _auth.signOut();
-           print("Master Admin Created Successfully");
-           
-        } catch (e) {
-           print("Error setting up master admin: $e");
+        await _auth.signOut();
+        return;
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'user-not-found' || e.code == 'invalid-credential') {
+          // User doesn't exist, proceed to create
+          print("Master Admin not found, creating...");
+        } else {
+          // Some other auth error (e.g. wrong password, but user might exist)
+          print("Auth check returned: ${e.code}. Skipping creation.");
+          return;
         }
       }
+
+      // Step 2: Create Authentication User
+      UserCredential result = await _auth.createUserWithEmailAndPassword(
+        email: masterEmail, 
+        password: masterPass
+      );
+      
+      String uid = result.user!.uid;
+      
+      // Step 3: Create Firestore Doc
+      await _db.collection('users').doc(uid).set({
+        'uid': uid,
+        'name': 'A-DACS ADMIN',
+        'email': masterEmail,
+        'role': 'admin',
+        'employeeId': masterEmpId,
+        'dept': 'Administration', 
+        'approvalStatus': 'approved',
+        'isRegistered': true,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      
+      await _auth.signOut();
+      print("Master Admin Created Successfully");
+      
     } catch (e) {
       print("Check Master Admin Failed: $e");
     }
@@ -74,14 +99,14 @@ class AuthService {
     try {
       // 1. Check for Duplicate RegNo/EmployeeId in Firestore BEFORE creating Auth User
       if (role == 'student' && regNo != null && regNo.isNotEmpty) {
-        final duplicateCheck = await _db.collection('users').where('regNo', isEqualTo: regNo).get();
+        final duplicateCheck = await _db.collection('users').where('regNo', isEqualTo: regNo).limit(1).get();
         if (duplicateCheck.docs.isNotEmpty) {
           return "Register Number '$regNo' is already registered.";
         }
       }
       
       if ((role == 'staff' || role == 'admin') && employeeId != null && employeeId.isNotEmpty) {
-        final duplicateCheck = await _db.collection('users').where('employeeId', isEqualTo: employeeId).get();
+        final duplicateCheck = await _db.collection('users').where('employeeId', isEqualTo: employeeId).limit(1).get();
         if (duplicateCheck.docs.isNotEmpty) {
            return "Employee ID '$employeeId' is already registered.";
         }
@@ -215,100 +240,11 @@ class AuthService {
       throw e.toString(); 
     }
   }
-  // 3. Google Sign-In
-  Future<UserCredential?> signInWithGoogle() async {
-    try {
-      // Trigger the authentication flow
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-      if (googleUser == null) return null; // The user canceled the sign-in
 
-      // Obtain the auth details from the request
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-
-      // Create a new credential
-      final OAuthCredential credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      // Sign in to Firebase with the Google User Credential
-      return await _auth.signInWithCredential(credential);
-    } catch (e) {
-      print("Google Sign In Error: $e");
-      return null;
-    }
-  }
-
-  // 4. Create Firestore User (for Google Sign In or other providers)
-  Future<void> createFirestoreUser({
-    required User user,
-    required String role,
-    required String name,
-    String? regNo,
-    String? dept,
-    String? employeeId,
-    String? quotaCategory,
-    String? batch,
-    String? studentType,
-    String? busPlace,
-    String? phone,
-    String? parentPhoneNumber,
-  }) async {
-    // Check if doc exists first
-    DocumentSnapshot doc = await _db.collection('users').doc(user.uid).get();
-    if (doc.exists) return; // User already has a profile
-
-    // Check Admin approval
-    QuerySnapshot adminQuery = await _db.collection('users').where('role', isEqualTo: 'admin').limit(1).get();
-    bool firstAdmin = adminQuery.docs.isEmpty;
-    String approvalStatus = (role == 'admin' && firstAdmin) ? 'approved' : 'pending';
-    if (role == 'student') approvalStatus = 'approved';
-
-    await _db.collection('users').doc(user.uid).set({
-        'uid': user.uid,
-        'name': name,
-        'email': user.email ?? '',
-        'phone': phone ?? '',
-        'parentPhoneNumber': parentPhoneNumber ?? '',
-        'role': role,
-        'approvalStatus': approvalStatus,
-        'regNo': regNo ?? '',
-        'dept': dept ?? '',
-        'employeeId': employeeId ?? '', 
-        'quotaCategory': quotaCategory ?? 'Management',
-        'batch': batch ?? '',
-        'studentType': studentType ?? 'day_scholar',
-        'busPlace': busPlace ?? '',
-        'createdAt': FieldValue.serverTimestamp(),
-        
-        if (role == 'student') ...{
-          'totalFee': 85000, 
-          'paidFee': 0,
-          'status': 'Pending'
-        }
-    });
-
-    // Update Master List
-    if (role == 'student' && regNo != null && regNo.isNotEmpty) {
-       await _db.collection('student_master_list').doc(regNo).update({'isRegistered': true});
-    }
-    if ((role == 'staff' || role == 'admin') && employeeId != null && employeeId.isNotEmpty) {
-        try {
-           await _db.collection('staff_master_list').doc(employeeId).update({'isRegistered': true});
-        } catch (_) {}
-    }
-
-  }
 
   // 5. Sign Out
   Future<void> signOut(dynamic context) async {
     await _auth.signOut();
-    try {
-      if (await GoogleSignIn().isSignedIn()) {
-        await GoogleSignIn().signOut();
-      }
-    } catch (_) {}
-    
     // We expect the UI to handle navigation to LoginScreen
   }
 }

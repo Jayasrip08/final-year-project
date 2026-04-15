@@ -15,6 +15,9 @@ class AdminStaffDatabase extends StatefulWidget {
 }
 
 class _AdminStaffDatabaseState extends State<AdminStaffDatabase> {
+  // Professional Red Color
+  final Color customRed = const Color.fromARGB(255, 198, 55, 45);
+
   bool _isUploading = false;
   List<List<dynamic>> _csvData = [];
   int _successCount = 0;
@@ -157,7 +160,13 @@ class _AdminStaffDatabaseState extends State<AdminStaffDatabase> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Staff Master Database")),
+      appBar: AppBar(
+        title: const Text("Staff Master Database"),
+        backgroundColor: customRed,
+        foregroundColor: Colors.white,
+        elevation: 0.5,
+        centerTitle: true,
+      ),
       drawer: widget.drawer,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -166,15 +175,32 @@ class _AdminStaffDatabaseState extends State<AdminStaffDatabase> {
           children: [
             // MANUAL ENTRY CARD
             Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: customRed.withOpacity(0.2)),
+              ),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("Add Single Staff", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    const SizedBox(height: 10),
                     Row(
                       children: [
-                         Expanded(child: TextField(controller: _empIdCtrl, decoration: const InputDecoration(labelText: "Employee ID"))),
+                        Icon(Icons.person_add_alt_1, color: customRed, size: 28),
+                        const SizedBox(width: 10),
+                        const Text(
+                          "Add Single Staff Member",
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 24),
+                    Row(
+                      children: [
+                         Expanded(
+                           child: _buildTextField(_empIdCtrl, "Employee ID"),
+                         ),
                          const SizedBox(width: 10),
                          Expanded(
                            child: StreamBuilder<QuerySnapshot>(
@@ -185,90 +211,182 @@ class _AdminStaffDatabaseState extends State<AdminStaffDatabase> {
                                  depts = snapshot.data!.docs.map((d) => d['name'] as String).toList();
                                }
                                return DropdownButtonFormField<String>(
-                                 initialValue: _deptCtrl.text.isNotEmpty && depts.contains(_deptCtrl.text) ? _deptCtrl.text : null,
-                                 decoration: const InputDecoration(labelText: "Dept"),
+                                 value: _deptCtrl.text.isNotEmpty && depts.contains(_deptCtrl.text) ? _deptCtrl.text : null,
+                                 decoration: _inputDecoration("Dept"),
                                  items: depts.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
                                  onChanged: (val) {
                                    if (val != null) setState(() => _deptCtrl.text = val);
                                  },
-                                 validator: (val) => val == null ? "Required" : null,
                                );
                              }
                            ),
                          ),
                       ],
                     ),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
-                         Expanded(child: TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: "Name"))),
+                         Expanded(
+                           child: _buildTextField(_nameCtrl, "Full Name"),
+                         ),
                          const SizedBox(width: 10),
-                         Expanded(child: TextField(controller: _mobileCtrl, decoration: const InputDecoration(labelText: "Mobile (+91...)"))),
+                         Expanded(
+                           child: _buildTextField(_mobileCtrl, "Mobile (+91...)"),
+                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    ElevatedButton(
-                      onPressed: _addManualEntry,
-                      child: const Text("Add Staff"),
-                    )
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: _addManualEntry,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: customRed,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          elevation: 2,
+                        ),
+                        child: const Text("Add Staff", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
             
-            const SizedBox(height: 20),
-            const Divider(),
-            const SizedBox(height: 10),
+            const SizedBox(height: 24),
 
             // BULK UPLOAD CARD
             Card(
-              color: Colors.orange.shade50,
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: customRed.withOpacity(0.2)),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.upload_file, size: 40, color: Colors.deepOrange),
-                    const SizedBox(height: 10),
-                    const Text("Bulk Import from CSV", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const Text("Format: EmpID, Name, Mobile, Dept", style: TextStyle(color: Colors.grey)),
+                    Row(
+                      children: [
+                        Icon(Icons.cloud_upload_outlined, color: customRed, size: 28),
+                        const SizedBox(width: 10),
+                        const Text(
+                          "Bulk Import from CSV",
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: customRed.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        "Format: EmpID, Name, Mobile, Dept",
+                        style: TextStyle(color: Colors.grey, fontSize: 13),
+                      ),
+                    ),
                     const SizedBox(height: 20),
-                    ElevatedButton.icon(
-                      onPressed: _isUploading ? null : _pickAndParseCSV,
-                      icon: const Icon(Icons.folder_open),
-                      label: const Text("Select CSV File"),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange, foregroundColor: Colors.white),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _isUploading ? null : _pickAndParseCSV,
+                        icon: const Icon(Icons.folder_open_outlined),
+                        label: const Text("Select CSV File"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: customRed,
+                          side: BorderSide(color: customRed),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
                     ),
                     
                     if (_csvData.isNotEmpty) ...[
                       const SizedBox(height: 20),
-                      Text("Preview: Found ${_csvData.length - 1} records (excluding header)"),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: customRed.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          "Preview: Found ${_csvData.length - 1} records (excluding header)",
+                          style: TextStyle(fontWeight: FontWeight.w500, color: customRed),
+                        ),
+                      ),
                       Container(
                         height: 150,
                         margin: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(border: Border.all(color: Colors.grey)),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey[300]!),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         child: ListView.builder(
                           itemCount: _csvData.length > 5 ? 5 : _csvData.length,
                           itemBuilder: (context, index) {
                             return ListTile(
-                              title: Text(_csvData[index].join(', ')),
+                              title: Text(
+                                _csvData[index].join(', '),
+                                style: const TextStyle(fontSize: 12),
+                              ),
                               dense: true,
                             );
                           },
                         ),
                       ),
-                      ElevatedButton(
-                        onPressed: _isUploading ? null : _uploadToFirestore,
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-                        child: _isUploading 
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text("UPLOAD TO DATABASE"),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: _isUploading ? null : _uploadToFirestore,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: customRed,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            elevation: 2,
+                          ),
+                          child: _isUploading 
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : const Text("UPLOAD TO DATABASE", style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
                       ),
                     ],
                     
                     if (_successCount > 0)
                       Padding(
-                        padding: const EdgeInsets.only(top: 10),
-                        child: Text("Success: $_successCount, Failed: $_failCount", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-                      )
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.green),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.check_circle_outline, color: Colors.green[700]),
+                              const SizedBox(width: 8),
+                              Text(
+                                "Success: $_successCount, Failed: $_failCount",
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -276,6 +394,31 @@ class _AdminStaffDatabaseState extends State<AdminStaffDatabase> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTextField(TextEditingController ctrl, String label) {
+    return TextField(
+      controller: ctrl,
+      decoration: _inputDecoration(label),
+    );
+  }
+
+  InputDecoration _inputDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(fontSize: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: Colors.grey[300]!),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: customRed, width: 2),
+      ),
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     );
   }
 }
