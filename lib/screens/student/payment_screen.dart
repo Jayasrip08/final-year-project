@@ -893,7 +893,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       // The amount the student must physically pay via UPI/DD = total fee minus wallet contribution.
       final double netExpected = widget.amount - _walletToUse;
 
-      // Submit via FeeService
+      // Submit via FeeService — pass enrichment as extraData so it's merged
+      // in the initial .set() call (students cannot .update() payment docs)
       await FeeService().submitComponentProof(
         uid: user.uid,
         semester: widget.semester,
@@ -906,78 +907,54 @@ class _PaymentScreenState extends State<PaymentScreen> {
         isInstallment: _isInstallmentMode,
         installmentNumber: _installmentNumber,
         walletUsedAmount: _walletToUse,
-      );
-
-      // Enrich Firestore document with full audit trail
-      String sanitizedType = widget.feeType.replaceAll(" ", "_");
-      String suffix = (_isInstallmentMode && _installmentNumber == 2) ? "_inst2" : "";
-      String paymentId = "${user.uid}_${widget.semester}_$sanitizedType$suffix";
-
-      final Map<String, dynamic> enrichment = {
-        'studentId': user.uid,
-        'studentName': userData['name'],
-        'studentRegNo': studentRegNo,
-        'dept': userData['dept'],
-        'quota': userData['quotaCategory'],
-        'paymentMode': _paymentMode == PaymentMode.dd ? 'dd' : 'upi',
-        'isInstallment': _isInstallmentMode,
-        'installmentNumber': _isInstallmentMode ? _installmentNumber : 1,
-        'totalInstallments': 2,
-        // Full original fee (before wallet) — stored for admin reference & surplus calc
-        'fullFeeAmount': widget.amount,
-        'walletUsedAmount': _walletToUse,
-        // Full OCR audit trail ...
-        'ocr': {
-          'ran': _ocrRan,
-          'verified': ocrVerified,
-          'anyFieldEdited': anyEdited,
-          'platform': 'mobile',
-          'scannedAt': FieldValue.serverTimestamp(),
-
-          // Original values extracted from image
-          'original': {
-            'transactionId': _ocrOriginalTxn,
-            'amount': _ocrOriginalAmount,
-            'date': _ocrOriginalDate,
-            'regNo': _ocrOriginalRegNo,
+        extraData: {
+          'studentId': user.uid,
+          'studentName': userData['name'],
+          'studentRegNo': studentRegNo,
+          'dept': userData['dept'],
+          'quota': userData['quotaCategory'],
+          'paymentMode': _paymentMode == PaymentMode.dd ? 'dd' : 'upi',
+          'isInstallment': _isInstallmentMode,
+          'installmentNumber': _isInstallmentMode ? _installmentNumber : 1,
+          'totalInstallments': 2,
+          'fullFeeAmount': widget.amount,
+          'walletUsedAmount': _walletToUse,
+          'ocr': {
+            'ran': _ocrRan,
+            'verified': ocrVerified,
+            'anyFieldEdited': anyEdited,
+            'platform': 'mobile',
+            'scannedAt': FieldValue.serverTimestamp(),
+            'original': {
+              'transactionId': _ocrOriginalTxn,
+              'amount': _ocrOriginalAmount,
+              'date': _ocrOriginalDate,
+              'regNo': _ocrOriginalRegNo,
+            },
+            'submitted': {
+              'transactionId': finalTxn,
+              'amount': finalAmount,
+              'date': finalDate,
+              'regNo': finalRegNo,
+              if (finalBank != null) 'bankName': finalBank,
+            },
+            'edited': {
+              'transactionId': txnEdited,
+              'amount': amountEdited,
+              'date': dateEdited,
+              'regNo': regNoEdited,
+            },
+            'studentRegNoGroundTruth': studentRegNo,
           },
-
-          // Final values submitted by student (may differ if edited)
-          'submitted': {
-            'transactionId': finalTxn,
+          if (_paymentMode == PaymentMode.dd) 'ddDetails': {
+            'ddNumber': finalTxn,
+            'bankName': finalBank,
+            'ddDate': finalDate,
             'amount': finalAmount,
-            'date': finalDate,
-            'regNo': finalRegNo,
-            if (finalBank != null) 'bankName': finalBank,
+            'submittedAt': FieldValue.serverTimestamp(),
           },
-
-          // Per-field edit flags (admin can see exactly what was changed)
-          'edited': {
-            'transactionId': txnEdited,
-            'amount': amountEdited,
-            'date': dateEdited,
-            'regNo': regNoEdited,
-          },
-
-          // Ground-truth student reg no from users collection
-          'studentRegNoGroundTruth': studentRegNo,
         },
-      };
-
-      if (_paymentMode == PaymentMode.dd) {
-        enrichment['ddDetails'] = {
-          'ddNumber': finalTxn,
-          'bankName': finalBank,
-          'ddDate': finalDate,
-          'amount': finalAmount,
-          'submittedAt': FieldValue.serverTimestamp(),
-        };
-      }
-
-      await FirebaseFirestore.instance
-          .collection('payments')
-          .doc(paymentId)
-          .update(enrichment);
+      );
 
       if (mounted) {
         ErrorHandler.showSuccess(

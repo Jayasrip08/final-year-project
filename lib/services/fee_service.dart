@@ -81,15 +81,22 @@ class FeeService {
   }
 
   // STUDENT: Get Fee Components (Aggregated/Additive)
+  // Uses deterministic doc IDs (same format as setFeeComponents) to avoid
+  // compound queries that need composite indexes and cause PERMISSION_DENIED.
   Future<Map<String, dynamic>?> getFeeComponents(String dept, String quotaCategory, String batch, String semester) async {
     // We want to fetch all matching configurations and merge them.
     // Order: General -> Specific (Specific overrides General if key matches)
-    
-    List<Map<String, String>> searchLevels = [
-      {'dept': 'All', 'quotaCategory': 'All'},         // 1. Most General
-      {'dept': dept, 'quotaCategory': 'All'},          // 2. Specific Dept
-      {'dept': 'All', 'quotaCategory': quotaCategory}, // 3. Specific Quota
-      {'dept': dept, 'quotaCategory': quotaCategory},  // 4. Most Specific
+    //
+    // Doc ID format (matches setFeeComponents):
+    //   {batch}_{sanitizedDept}_{sanitizedQuota}_{semester}
+    String sanitizedDept   = dept.replaceAll(' ', '_');
+    String sanitizedQuota  = quotaCategory.replaceAll(' ', '_');
+
+    List<String> docIds = [
+      '${batch}_All_All_$semester',                              // 1. Most General
+      '${batch}_${sanitizedDept}_All_$semester',                 // 2. Specific Dept
+      '${batch}_All_${sanitizedQuota}_$semester',                // 3. Specific Quota
+      '${batch}_${sanitizedDept}_${sanitizedQuota}_$semester',   // 4. Most Specific
     ];
     
     Map<String, dynamic> combinedComponents = {};
@@ -99,37 +106,39 @@ class FeeService {
 
     bool foundAny = false;
 
-    for (var level in searchLevels) {
-      QuerySnapshot snapshot = await _db.collection('fee_structures')
-          .where('academicYear', isEqualTo: batch)
-          .where('dept', isEqualTo: level['dept'])
-          .where('quotaCategory', isEqualTo: level['quotaCategory'])
-          .where('semester', isEqualTo: semester)
-          .where('isActive', isEqualTo: true)
-          .limit(1)
-          .get();
-          
-      if (snapshot.docs.isNotEmpty) {
-        foundAny = true;
-        final data = snapshot.docs.first.data() as Map<String, dynamic>;
-        
-        // Merge components
-        if (data['components'] != null) {
-          combinedComponents.addAll(Map<String, dynamic>.from(data['components']));
-        }
-        
-        // Take the latest/most specific deadline if available
-        if (data['deadline'] != null) {
-          latestDeadline = (data['deadline'] as Timestamp?)?.toDate();
-        }
+    for (var docId in docIds) {
+      try {
+        final docSnap = await _db.collection('fee_structures').doc(docId).get();
 
-        // Take exam fee/deadline if available (last one wins - specific overrides general)
-        if (data['examFee'] != null) {
-          examFee = (data['examFee'] as num).toDouble();
+        if (docSnap.exists) {
+          final data = docSnap.data() as Map<String, dynamic>;
+
+          // Skip inactive fee structures
+          if (data['isActive'] == false) continue;
+
+          foundAny = true;
+
+          // Merge components
+          if (data['components'] != null) {
+            combinedComponents.addAll(Map<String, dynamic>.from(data['components']));
+          }
+
+          // Take the latest/most specific deadline if available
+          if (data['deadline'] != null) {
+            latestDeadline = (data['deadline'] as Timestamp?)?.toDate();
+          }
+
+          // Take exam fee/deadline if available (last one wins - specific overrides general)
+          if (data['examFee'] != null) {
+            examFee = (data['examFee'] as num).toDouble();
+          }
+          if (data['examDeadline'] != null) {
+            examDeadline = (data['examDeadline'] as Timestamp?)?.toDate();
+          }
         }
-        if (data['examDeadline'] != null) {
-          examDeadline = (data['examDeadline'] as Timestamp?)?.toDate();
-        }
+      } catch (e) {
+        // Log but continue — an error on one level shouldn't block others
+        print('FeeService: doc fetch for $docId failed: $e');
       }
     }
     
@@ -180,14 +189,18 @@ class FeeService {
     bool isInstallment = false,
     int installmentNumber = 1,
     double walletUsedAmount = 0.0,
+    Map<String, dynamic>? extraData, // Optional enrichment merged into the same set()
   }) async {
     // ID: uid_semester_feeType (Sanitized)
     String sanitizedType = feeType.replaceAll(" ", "_");
     String suffix = (isInstallment && installmentNumber == 2) ? "_inst2" : "";
     String paymentId = "${uid}_${semester}_$sanitizedType$suffix";
     
-    await _db.collection('payments').doc(paymentId).set({
+    // Build the base document data — 'studentId' is required by the Firestore
+    // create rule: `request.resource.data.studentId == request.auth.uid`
+    final Map<String, dynamic> docData = {
       'uid': uid,
+      'studentId': uid,          // ← required for Firestore create rule
       'semester': semester,
       'feeType': feeType,
       'amountExpected': amountExpected,
@@ -199,7 +212,12 @@ class FeeService {
       'status': 'under_review',
       'ocrVerified': ocrVerified,
       'submittedAt': FieldValue.serverTimestamp(),
-    });
+      // Merge any extra enrichment fields (e.g. from payment_screen)
+      // so we avoid a separate .update() call that requires admin rights
+      if (extraData != null) ...extraData,
+    };
+
+    await _db.collection('payments').doc(paymentId).set(docData);
     
     // Notify all admins about new payment submission
     try {

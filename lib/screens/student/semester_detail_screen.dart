@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:confetti/confetti.dart'; // Added for confetti
+import 'package:confetti/confetti.dart';
+import 'package:uuid/uuid.dart';
 import '../../services/fee_service.dart';
-import '../../services/pdf_service.dart';
 import 'package:intl/intl.dart';
 import 'payment_screen.dart';
 
@@ -40,6 +40,9 @@ class _SemesterDetailScreenState extends State<SemesterDetailScreen> {
 
   // Confetti
   late ConfettiController _confettiController;
+
+  // Flag to prevent multiple dialogs
+  bool _hasShownClearDialog = false;
 
   @override
   void initState() {
@@ -112,44 +115,56 @@ class _SemesterDetailScreenState extends State<SemesterDetailScreen> {
         debugPrint("DEBUG: No fee structure returned from FeeService");
       }
 
-      // Fetch Payments
+      // Fetch Payments — wrapped per fee-type so one failure doesn't abort all
       for (String feeType in _feeComponents.keys) {
         String sanitizedType = feeType.replaceAll(" ", "_");
         String paymentId1 = "${_user.uid}_${widget.semester}_$sanitizedType";
         String paymentId2 = "${paymentId1}_inst2";
         
-        var doc1 = await FirebaseFirestore.instance.collection('payments').doc(paymentId1).get();
-        var doc2 = await FirebaseFirestore.instance.collection('payments').doc(paymentId2).get();
-        
-        if (doc2.exists) {
-          var d1 = doc1.exists ? doc1.data() as Map<String, dynamic> : null;
-          var d2 = doc2.data() as Map<String, dynamic>;
-          if (d1 != null && d1['status'] == 'verified' && d2['status'] == 'verified') {
-             double p1 = (d1['amountPaid'] as num?)?.toDouble() ?? (d1['amount'] as num?)?.toDouble() ?? 0.0;
-             double p2 = (d2['amountPaid'] as num?)?.toDouble() ?? (d2['amount'] as num?)?.toDouble() ?? 0.0;
-             _paymentStatus[feeType] = {...d2, 'amountPaid': p1 + p2};
-          } else if ((d1 != null && d1['status'] == 'rejected') || d2['status'] == 'rejected') {
-             _paymentStatus[feeType] = (d1 != null && d1['status'] == 'rejected') ? d1 : d2;
+        try {
+          var doc1 = await FirebaseFirestore.instance.collection('payments').doc(paymentId1).get();
+          var doc2 = await FirebaseFirestore.instance.collection('payments').doc(paymentId2).get();
+          
+          if (doc2.exists) {
+            var d1 = doc1.exists ? doc1.data() as Map<String, dynamic> : null;
+            var d2 = doc2.data() as Map<String, dynamic>;
+            if (d1 != null && d1['status'] == 'verified' && d2['status'] == 'verified') {
+               double p1 = (d1['amountPaid'] as num?)?.toDouble() ?? (d1['amount'] as num?)?.toDouble() ?? 0.0;
+               double p2 = (d2['amountPaid'] as num?)?.toDouble() ?? (d2['amount'] as num?)?.toDouble() ?? 0.0;
+               _paymentStatus[feeType] = {...d2, 'amountPaid': p1 + p2};
+            } else if ((d1 != null && d1['status'] == 'rejected') || d2['status'] == 'rejected') {
+               _paymentStatus[feeType] = (d1 != null && d1['status'] == 'rejected') ? d1 : d2;
+            } else {
+               _paymentStatus[feeType] = {'status': 'under_review', 'isPartial': true};
+            }
+          } else if (doc1.exists) {
+            var data = doc1.data() as Map<String, dynamic>;
+            if (data['isInstallment'] == true && data['status'] == 'verified') {
+               _paymentStatus[feeType] = {...data, 'status': 'partially_paid'};
+            } else {
+               _paymentStatus[feeType] = data;
+            }
           } else {
-             _paymentStatus[feeType] = {'status': 'under_review', 'isPartial': true};
+            _paymentStatus[feeType] = {'status': 'not_paid'};
           }
-        } else if (doc1.exists) {
-          var data = doc1.data() as Map<String, dynamic>;
-          if (data['isInstallment'] == true && data['status'] == 'verified') {
-             _paymentStatus[feeType] = {...data, 'status': 'partially_paid'};
-          } else {
-             _paymentStatus[feeType] = data;
-          }
-        } else {
+        } catch (e) {
+          // Default to not_paid if we can't read this payment doc
+          debugPrint("DEBUG: Payment fetch failed for $feeType: $e");
           _paymentStatus[feeType] = {'status': 'not_paid'};
         }
       }
 
-      final certDoc = await FirebaseFirestore.instance
-          .collection('no_due_certificates')
-          .doc('${_user.uid}_${widget.semester}')
-          .get();
-      _noDueCertData = certDoc.exists ? certDoc.data() : null;
+      // Fetch No-Due Certificate status
+      try {
+        final certDoc = await FirebaseFirestore.instance
+            .collection('no_due_certificates')
+            .doc('${_user.uid}_${widget.semester}')
+            .get();
+        _noDueCertData = certDoc.exists ? certDoc.data() : null;
+      } catch (e) {
+        debugPrint("DEBUG: No-due cert fetch failed: $e");
+        _noDueCertData = null;
+      }
 
       // Check Eligibility
       double totalMandatoryExpected = 0;
@@ -163,10 +178,27 @@ class _SemesterDetailScreenState extends State<SemesterDetailScreen> {
           }
         }
       });
+      
       bool isEligibleForNoDue = totalMandatoryPaid >= totalMandatoryExpected && _feeComponents.isNotEmpty;
 
       if (isEligibleForNoDue && mounted) {
-        _confettiController.play();
+        // Only show dialog once
+        if (!_hasShownClearDialog) {
+          _hasShownClearDialog = true;
+          // Delay so widget is fully built before triggering confetti + dialog
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted) {
+              _confettiController.play();
+            }
+          });
+          Future.delayed(const Duration(milliseconds: 1200), () {
+            if (mounted) {
+              _showFeeClearedDialog();
+            }
+          });
+        }
+      } else {
+        _hasShownClearDialog = false;
       }
     } catch (e) {
       debugPrint("DEBUG ERROR: SemesterDetailScreen _loadDetails failed: $e");
@@ -197,24 +229,8 @@ class _SemesterDetailScreenState extends State<SemesterDetailScreen> {
   Future<void> _generateCertificate({bool isReissue = false}) async {
     setState(() => _isGeneratingCert = true);
     try {
-      Map<String, double> paidFees = {};
-      _feeComponents.forEach((feeType, amount) {
-        if (_paymentStatus[feeType]?['status'] == 'verified') {
-          paidFees[feeType] = amount;
-        }
-      });
-
       final existingCertId = _noDueCertData?['certId'] as String?;
-
-      final certId = await PdfService().generateAndDownloadCertificate(
-        widget.userData['name'] ?? 'Student',
-        widget.userData['regNo'] ?? '',
-        widget.userData['dept'] ?? 'CSE',
-        widget.userData['batch'] ?? '',
-        widget.semester,
-        paidFees,
-        certId: existingCertId,
-      );
+      final certId = existingCertId ?? const Uuid().v4();
 
       final certRef = FirebaseFirestore.instance
           .collection('no_due_certificates')
@@ -241,12 +257,125 @@ class _SemesterDetailScreenState extends State<SemesterDetailScreen> {
           'reissueApprovedAt': null,
         });
       }
-      _loadDetails();
+
+      await _loadDetails();
+
+      // Tell the student where to download the certificate
+      if (mounted) _showCertReadyDialog();
     } catch (e) {
       debugPrint("Error generating cert: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Failed to issue certificate. Please try again.'),
+            backgroundColor: customRed,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isGeneratingCert = false);
     }
+  }
+
+  void _showCertReadyDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.verified_rounded, color: Colors.green, size: 22),
+            ),
+            const SizedBox(width: 10),
+            const Text('Certificate Ready!'),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Your No-Due Certificate has been issued successfully.',
+              style: TextStyle(fontSize: 14),
+            ),
+            SizedBox(height: 16),
+            Row(
+              children: [
+                Icon(Icons.info_outline_rounded, size: 16, color: Colors.blue),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Go to Dashboard → Documents to download your certificate as a PDF.',
+                    style: TextStyle(fontSize: 13, color: Colors.blue),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: customRed,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Got it'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFeeClearedDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.celebration, color: customRed),
+            const SizedBox(width: 8),
+            const Text('Congratulations!'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('You have cleared all mandatory fees for this semester.'),
+            const SizedBox(height: 16),
+            const Text('You can now generate your No-Due Certificate.'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Later', style: TextStyle(color: customRed)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _generateCertificate();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: customRed,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Generate Certificate'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildNoDueCertButton() {
@@ -306,8 +435,13 @@ class _SemesterDetailScreenState extends State<SemesterDetailScreen> {
     if (certStatus == 'reissue_approved') {
       return ElevatedButton(
         onPressed: () => _generateCertificate(isReissue: true),
-        style: ElevatedButton.styleFrom(backgroundColor: Colors.greenAccent, foregroundColor: Colors.black, elevation: 0),
-        child: const Text("DOWNLOAD NOW"),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.greenAccent,
+          foregroundColor: Colors.black,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        child: const Text("REISSUE CERTIFICATE"),
       );
     }
 
@@ -325,41 +459,48 @@ class _SemesterDetailScreenState extends State<SemesterDetailScreen> {
         elevation: 0,
         centerTitle: true,
       ),
-      body: _isLoading 
-        ? const Center(child: CircularProgressIndicator())
-          : Stack(
-              children: [
-                RefreshIndicator(
-                  onRefresh: _loadDetails,
-                  color: customRed,
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    children: [
-                      _buildSummaryCard(),
-                      const SizedBox(height: 30),
-                      const Text("Detailed Fee Breakdown", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-                      const SizedBox(height: 16),
-                      if (_feeComponents.isEmpty)
-                         _buildEmptyFees()
-                      else
-                        ..._feeComponents.entries.map((entry) => _buildFeeItem(entry.key, entry.value)),
-                    ],
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.topCenter,
-                  child: ConfettiWidget(
-                    confettiController: _confettiController,
-                    blastDirectionality: BlastDirectionality.explosive,
-                    shouldLoop: false,
-                    colors: const [Colors.green, Colors.yellow, Colors.red, Colors.blue, Colors.orange],
-                    numberOfParticles: 20,
-                    gravity: 0.2,
-                  ),
-                ),
-                if (_isGeneratingCert) _buildProcessingOverlay(),
-              ],
+      body: Stack(
+        children: [
+          // Main content (always in tree)
+          if (_isLoading)
+            const Center(child: CircularProgressIndicator())
+          else
+            RefreshIndicator(
+              onRefresh: _loadDetails,
+              color: customRed,
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                children: [
+                  _buildSummaryCard(),
+                  const SizedBox(height: 30),
+                  const Text("Detailed Fee Breakdown", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
+                  const SizedBox(height: 16),
+                  if (_feeComponents.isEmpty)
+                     _buildEmptyFees()
+                  else
+                    ..._feeComponents.entries.map((entry) => _buildFeeItem(entry.key, entry.value)),
+                ],
+              ),
             ),
+          // Confetti overlay — always in the widget tree so it can animate at any time
+          Align(
+            alignment: Alignment.topCenter,
+            child: ConfettiWidget(
+              confettiController: _confettiController,
+              blastDirectionality: BlastDirectionality.explosive,
+              shouldLoop: false,
+              colors: const [Colors.green, Colors.yellow, Colors.red, Colors.blue, Colors.orange],
+              numberOfParticles: 50,
+              gravity: 0.15,
+              strokeWidth: 1.5,
+              emissionFrequency: 0.05,
+              maximumSize: const Size(20, 10),
+              minimumSize: const Size(8, 4),
+            ),
+          ),
+          if (!_isLoading && _isGeneratingCert) _buildProcessingOverlay(),
+        ],
+      ),
     );
   }
 

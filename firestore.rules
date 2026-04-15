@@ -1,196 +1,216 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     // ============================================
     // HELPER FUNCTIONS
     // ============================================
-    
+
     function isSignedIn() {
       return request.auth != null;
     }
-    
+
     function getUserRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
-    
+
     function isAdmin() {
       return isSignedIn() && getUserRole() == 'admin';
     }
-    
+
     function isStaff() {
       return isSignedIn() && getUserRole() == 'staff';
     }
-    
+
     function isStudent() {
       return isSignedIn() && getUserRole() == 'student';
     }
-    
-    function getStaffDept() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.dept;
-    }
-    
+
     function isAssignedStaff(studentId) {
       return exists(/databases/$(database)/documents/student_assignments/$(request.auth.uid + '_' + studentId));
     }
-    
+
     // ============================================
     // USERS COLLECTION
     // ============================================
     match /users/{userId} {
-      // Users can read their own document (single get)
+      // Any signed-in user can read their own doc
       allow get: if isSignedIn() && request.auth.uid == userId;
-      
-      // Admin can read all users (get + list)
+
+      // Admin can read all users
       allow read: if isAdmin();
-      
-      // Staff can get individual students (for assignments)
+
+      // Staff can get individual assigned students
       allow get: if isStaff() && isAssignedStaff(userId);
 
-      // Staff can LIST students in their own department
-      // (used by staff_dashboard.dart to load student list)
+      // Staff can list students (for staff dashboard)
       allow list: if isStaff();
 
-      // Allow small limit queries when not yet authenticated:
-      // used for registration duplicate checks and master admin setup
+      // Allow small-limit queries for registration duplicate checks (signed-in)
       allow list: if isSignedIn() && request.query.limit <= 5;
-      
-      // Also allow unauthenticated small-limit queries
-      // (ensureMasterAdminExists runs before login, checks email)
+
+      // Allow unauthenticated small-limit queries (ensureMasterAdminExists)
       allow list: if request.query.limit <= 2;
-      
+
       // Users can create their own document during registration
       allow create: if isSignedIn() && request.auth.uid == userId;
 
-      // Allow master admin creation (runs signIn first then creates/sets doc)
+      // Allow master admin creation
       allow create: if true;
-      
+
       // Users can update their own document (except protected fields)
       allow update: if isSignedIn() && request.auth.uid == userId
                     && !request.resource.data.diff(resource.data).affectedKeys()
                         .hasAny(['role', 'totalFee', 'paidFee', 'status']);
-      
+
       // Admin can update any user
       allow update: if isAdmin();
-      
+
       // Admin can delete users
       allow delete: if isAdmin();
     }
-    
+
     // ============================================
     // PAYMENTS COLLECTION
     // ============================================
     match /payments/{paymentId} {
-      // Students can read (get) their own payment documents
-      // Note: We check studentId from resource.data only when document exists.
-      // For non-existent doc gets (doc.get() returns exists=false), Firestore
-      // does NOT evaluate resource.data — allow student gets by UID prefix match.
+      // Students can get their own payment docs by doc ID prefix
+      // paymentId format: {uid}_{semester}_{feeType}[_inst2]
       allow get: if isSignedIn() && (
-        // Document exists and belongs to this student
         (resource != null && resource.data.studentId == request.auth.uid)
-        // OR the payment document ID starts with the student's UID
-        // (paymentId format: uid_semester_FeeType)
-        || paymentId.matches(request.auth.uid + '.*')
+        || paymentId.matches(request.auth.uid + '_.*')
       );
-      
-      // Students can list their own payments
-      allow list: if isStudent() && request.query.filters.size() > 0;
-      
-      // Staff can get payments for students in their department
+
+      // Students can list their own payments (filtered queries, e.g. duplicate check)
+      allow list: if isSignedIn() && (
+        // Query filtered by studentId — used by checkDuplicatePayment
+        request.query.filters.size() > 0
+      );
+
+      // Staff can get payments for assigned students
       allow get: if isStaff() && resource != null && isAssignedStaff(resource.data.studentId);
-      
-      // Staff can LIST all payments filtered by their department
-      // (used by staff_dashboard.dart: .where('dept', isEqualTo: staffDept))
+
+      // Staff can list all payments (filtered by dept on staff dashboard)
       allow list: if isStaff();
 
       // Admin can read all payments
       allow read: if isAdmin();
-      
-      // Students can create payments for themselves
-      allow create: if isStudent() 
+
+      // Students can CREATE their own payment document in a single .set() call.
+      // The document must include studentId (== caller uid) and a valid status.
+      allow create: if isSignedIn()
                     && request.resource.data.studentId == request.auth.uid
                     && request.resource.data.status in ['pending', 'under_review'];
-      
-      // Only admin can update payments (verify/reject)
+
+      // Students can UPDATE their own payment doc ONLY for re-submission
+      // (e.g. rejected payment — re-upload proof) on allowed fields only.
+      // Admin can update anything (verify / reject).
       allow update: if isAdmin();
-      
+      allow update: if isSignedIn()
+                    && resource.data.studentId == request.auth.uid
+                    && resource.data.status in ['rejected']
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['proofUrl', 'transactionId', 'amountPaid', 'amount',
+                                  'amountExpected', 'walletUsedAmount', 'status',
+                                  'ocrVerified', 'submittedAt', 'ocr', 'ddDetails',
+                                  'paymentMode', 'fullFeeAmount', 'studentRegNo',
+                                  'studentName', 'dept', 'quota', 'isInstallment',
+                                  'installmentNumber', 'totalInstallments']);
+
       // Only admin can delete payments
       allow delete: if isAdmin();
     }
-    
+
     // ============================================
     // FEE STRUCTURES COLLECTION
     // ============================================
     match /fee_structures/{feeId} {
-      allow read: if isSignedIn();
+      // All signed-in users can read (both direct get and list/query)
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
       allow write: if isAdmin();
     }
-    
+
+    // ============================================
+    // PAYMENT METHODS COLLECTION
+    // (stores UPI IDs and account names per fee type)
+    // ============================================
+    match /payment_methods/{methodId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     // ============================================
     // ACADEMIC YEARS COLLECTION
     // ============================================
     match /academic_years/{yearId} {
-      allow read: if isSignedIn();
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
       allow write: if isAdmin();
     }
-    
+
     // ============================================
     // SEMESTERS COLLECTION
     // ============================================
     match /semesters/{semesterId} {
-      allow read: if isSignedIn();
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
       allow write: if isAdmin();
     }
-    
+
     // ============================================
     // DEPARTMENTS COLLECTION
     // ============================================
     match /departments/{deptId} {
-      allow read: if isSignedIn();
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
       allow write: if isAdmin();
     }
-    
+
     // ============================================
     // QUOTAS COLLECTION
     // ============================================
     match /quotas/{quotaId} {
-      allow read: if isSignedIn();
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
       allow write: if isAdmin();
     }
-    
+
     // ============================================
     // NOTIFICATIONS COLLECTION
     // ============================================
     match /notifications/{notificationId} {
-      // Users can get their own notification by document ID
-      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
-      
-      // Users can LIST/QUERY their own notifications
-      // (getUnreadNotificationCount, getUnreadCountStream, NotificationsScreen)
+      // Users can get their own notifications by doc ID
+      allow get: if isSignedIn() && resource != null && resource.data.userId == request.auth.uid;
+
+      // Users can list/query their own notifications
       allow list: if isSignedIn();
-      
+
       // Admin can read all
       allow read: if isAdmin();
-      
-      // Users can update their own notifications (mark as read / received)
+
+      // Users can mark their own notifications as read/received
       allow update: if isSignedIn() && resource.data.userId == request.auth.uid
                     && request.resource.data.diff(resource.data).affectedKeys()
                         .hasOnly(['read', 'readAt', 'received', 'receivedAt']);
-      
-      // Allow create from app and Cloud Functions
+
+      // Anyone (app + Cloud Functions) can create notifications
       allow create: if true;
-      
+
       // Admin can delete
       allow delete: if isAdmin();
     }
-    
+
     // ============================================
     // STUDENT ASSIGNMENTS COLLECTION
     // ============================================
     match /student_assignments/{assignmentId} {
-      allow read: if isStaff() && resource.data.staffId == request.auth.uid;
-      allow read: if isStudent() && resource.data.studentId == request.auth.uid;
+      allow read: if isStaff() && resource != null && resource.data.staffId == request.auth.uid;
+      allow read: if isStudent() && resource != null && resource.data.studentId == request.auth.uid;
       allow read: if isAdmin();
+      // Allow exists() check without full read (used by isAssignedStaff helper)
+      allow get: if isSignedIn();
       allow write: if isAdmin();
     }
 
@@ -215,17 +235,39 @@ service cloud.firestore {
     // NO DUE CERTIFICATES COLLECTION
     // ============================================
     match /no_due_certificates/{certDocId} {
-      // Students can read/write their own certificate
-      allow read, write: if isSignedIn() && certDocId.startsWith(request.auth.uid + "_");
-      
+      // Students can read/write their own certificate doc
+      allow read, write: if isSignedIn() && certDocId.matches(request.auth.uid + '_.*');
+
       // Staff can read assigned student certificates
-      allow read: if isStaff() && isAssignedStaff(certDocId.split("_")[0]);
+      allow read: if isStaff() && isAssignedStaff(certDocId.split('_')[0]);
 
       // Admin can read/write all
       allow read, write: if isAdmin();
 
-      // Public certificate verification by certId (open list for certificate lookup)
+      // Public list for certificate verification (open lookup by certId)
       allow list: if true;
+    }
+
+    // ============================================
+    // CLEARANCE REQUESTS COLLECTION
+    // ============================================
+    match /clearance_requests/{requestId} {
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow read, update: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow read: if isStaff() && isAssignedStaff(resource.data.uid);
+      allow write: if isStaff();
+      allow read, write: if isAdmin();
+    }
+
+    // ============================================
+    // SUPPORT TICKETS COLLECTION
+    // ============================================
+    match /support_tickets/{ticketId} {
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow read, update: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow read: if isStaff() && isAssignedStaff(resource.data.uid);
+      allow write: if isStaff();
+      allow read, write: if isAdmin();
     }
   }
 }

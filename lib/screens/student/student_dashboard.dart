@@ -3,6 +3,10 @@ import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'semester_detail_screen.dart';
+import 'documents_screen.dart';
+import 'clearance_screen.dart';
+import 'fees_ledger_screen.dart';
+import 'support_screen.dart';
 import '../profile_screen.dart';
 import '../notifications_screen.dart';
 import '../../widgets/notification_badge.dart';
@@ -180,30 +184,80 @@ class _StudentDashboardState extends State<StudentDashboard> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        _quickActionItem(Icons.history_edu_rounded, "Clearance"),
-        _quickActionItem(Icons.account_balance_rounded, "Fees"),
-        _quickActionItem(Icons.file_present_rounded, "Documents"),
-        _quickActionItem(Icons.help_outline_rounded, "Support"),
+        _quickActionItem(
+          Icons.history_edu_rounded, 
+          "Clearance",
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ClearanceScreen(userData: _userData!),
+              ),
+            );
+          },
+        ),
+        _quickActionItem(
+          Icons.account_balance_rounded, 
+          "Fees",
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => FeesLedgerScreen(userData: _userData!),
+              ),
+            );
+          },
+        ),
+        _quickActionItem(
+          Icons.file_present_rounded, 
+          "Documents",
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DocumentsScreen(userData: _userData!),
+              ),
+            );
+          },
+        ),
+        _quickActionItem(
+          Icons.help_outline_rounded, 
+          "Support",
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SupportScreen(userData: _userData!),
+              ),
+            );
+          },
+        ),
       ],
     );
   }
 
-  Widget _quickActionItem(IconData icon, String label) {
-    return Column(
-      children: [
-        Container(
-          height: 60,
-          width: 60,
-          decoration: BoxDecoration(
-            color: Colors.grey[50],
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey[200]!),
+  Widget _quickActionItem(IconData icon, String label, {required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            height: 60,
+            width: 60,
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.blue.withOpacity(0.3)),
+            ),
+            child: Icon(icon, color: Colors.blue, size: 28),
           ),
-          child: Icon(icon, color: Colors.grey[700], size: 28),
-        ),
-        const SizedBox(height: 8),
-        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[800], fontWeight: FontWeight.w500)),
-      ],
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
     );
   }
 
